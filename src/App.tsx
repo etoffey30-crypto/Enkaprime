@@ -210,6 +210,43 @@ export default function App() {
     }
   };
 
+  // Update Open Graph / Twitter meta tags at runtime using DB-driven settings
+  useEffect(() => {
+    try {
+      const hero = dbSettings.hero_image || dbSettings.site_logo || '';
+      const title = dbSettings.site_title || 'enkaprime — Landing Page Development';
+      const desc = dbSettings.site_tagline || dbSettings.hero_description || 'enkaprime.com — Landing Page Development';
+
+      const setMeta = (key: string, value: string, isProperty = false) => {
+        if (!value) return;
+        const selector = isProperty ? `meta[property="${key}"]` : `meta[name="${key}"]`;
+        let el = document.head.querySelector(selector) as HTMLMetaElement | null;
+        if (!el) {
+          el = document.createElement('meta');
+          if (isProperty) el.setAttribute('property', key);
+          else el.setAttribute('name', key);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', value);
+      };
+
+      // Titles / descriptions
+      document.title = title;
+      setMeta('og:title', title, true);
+      setMeta('og:description', desc, true);
+      setMeta('twitter:title', title);
+      setMeta('twitter:description', desc);
+
+      // Images
+      if (hero) {
+        setMeta('og:image', hero, true);
+        setMeta('twitter:image', hero);
+      }
+    } catch (e) {
+      console.error('Error updating social meta tags:', e);
+    }
+  }, [dbSettings]);
+
 
 
   useEffect(() => {
