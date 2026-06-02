@@ -23,7 +23,7 @@ const SERVICE_DROPDOWN = [
   { label: 'Records Digitalisation', sub: 'Document Management Systems', href: 'service-records', icon: Database },
   { label: 'Asset Tagging', sub: 'Asset Register Development', href: 'service-asset', icon: Tag },
   { label: 'ISO Implementation', sub: 'Compliance Support', href: 'service-iso', icon: ShieldCheck },
-  { label: 'Programmes & Capacity', sub: 'Corporate Learning Programmes', href: 'training', icon: GraduationCap },
+  { label: 'Training & Capacity Building', sub: 'Corporate Learning Programmes', href: 'training', icon: GraduationCap },
 ];
 
 const CATEGORIES = ['All', 'Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'];
