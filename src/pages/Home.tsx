@@ -302,7 +302,7 @@ export default function Home({ onNavigate, settings }: HomeProps) {
             <path d="M320 80 C420 220 380 500 320 720" />
             <path d="M80 40 C220 120 260 260 180 420" />
           </g>
-          <!-- subtle vignette to blend edges -->
+          {/* subtle vignette to blend edges */}
           <rect x="0" y="0" width="600" height="800" fill="transparent" />
         </svg>
       </div>
