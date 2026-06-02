@@ -285,18 +285,20 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   const renderAboutPreview = () => (
     <section key="about_preview" className="py-16 sm:py-24 bg-white relative overflow-hidden">
       {/* Decorative golden brush texture (SVG) on the left to match brand accent */}
-      <div className="absolute left-0 top-0 bottom-0 w-1/2 pointer-events-none z-0 flex items-center">
-        <svg viewBox="0 0 600 800" className="h-full w-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" aria-hidden>
+      <div className="absolute left-0 top-0 bottom-0 w-1/2 pointer-events-none z-20 flex items-center">
+        <svg viewBox="0 0 600 800" className="h-full w-full mix-blend-multiply" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" aria-hidden>
           <defs>
             <linearGradient id="goldBrush" x1="0%" x2="100%" y1="0%" y2="100%">
-              <stop offset="0%" stopColor="rgba(201,168,76,0.95)" />
-              <stop offset="100%" stopColor="rgba(201,168,76,0.6)" />
+              <stop offset="0%" stopColor="#C9A84C" />
+              <stop offset="100%" stopColor="#E7C77A" />
             </linearGradient>
             <filter id="softBlur">
               <feGaussianBlur stdDeviation="18" />
             </filter>
           </defs>
-          <g opacity="0.34" filter="url(#softBlur)" stroke="url(#goldBrush)" strokeWidth="200" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          {/* base gold wash to cover white */}
+          <rect x="0" y="0" width="600" height="800" fill="rgba(201,168,76,0.10)" />
+          <g opacity="0.6" filter="url(#softBlur)" stroke="url(#goldBrush)" strokeWidth="260" strokeLinecap="round" strokeLinejoin="round" fill="none">
             <path d="M40 120 C140 200 80 420 40 640" />
             <path d="M160 60 C260 190 220 420 160 640" />
             <path d="M320 80 C420 220 380 500 320 720" />
