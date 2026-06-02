@@ -284,9 +284,27 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   // 3. ABOUT PREVIEW SECTION - Redesigned master UI
   const renderAboutPreview = () => (
     <section key="about_preview" className="py-16 sm:py-24 bg-gray-50 relative overflow-hidden">
-      {/* Decorative golden wash on the left side to match brand accent */}
-      <div className="absolute left-0 top-0 bottom-0 w-1/2 pointer-events-none -z-10">
-        <div style={{ background: 'linear-gradient(180deg, rgba(201,168,76,0.12), rgba(201,168,76,0.03))' }} className="h-full w-full" />
+      {/* Decorative golden brush texture (SVG) on the left to match brand accent */}
+      <div className="absolute left-0 top-0 bottom-0 w-1/2 pointer-events-none -z-10 flex items-center">
+        <svg viewBox="0 0 600 800" className="h-full w-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <defs>
+            <linearGradient id="goldBrush" x1="0%" x2="100%" y1="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(201,168,76,0.95)" />
+              <stop offset="100%" stopColor="rgba(201,168,76,0.6)" />
+            </linearGradient>
+            <filter id="softBlur">
+              <feGaussianBlur stdDeviation="18" />
+            </filter>
+          </defs>
+          <g opacity="0.18" filter="url(#softBlur)" stroke="url(#goldBrush)" strokeWidth="140" strokeLinecap="round" strokeLinejoin="round" fill="none">
+            <path d="M40 120 C140 200 80 420 40 640" />
+            <path d="M160 60 C260 190 220 420 160 640" />
+            <path d="M320 80 C420 220 380 500 320 720" />
+            <path d="M80 40 C220 120 260 260 180 420" />
+          </g>
+          <!-- subtle vignette to blend edges -->
+          <rect x="0" y="0" width="600" height="800" fill="transparent" />
+        </svg>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
         <div className="text-center mb-8 sm:mb-12">
