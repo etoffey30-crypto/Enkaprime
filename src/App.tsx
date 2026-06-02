@@ -213,7 +213,7 @@ export default function App() {
   // Update Open Graph / Twitter meta tags at runtime using DB-driven settings
   useEffect(() => {
     try {
-      const hero = dbSettings.hero_image || dbSettings.site_logo || '';
+      const logo = dbSettings.header_logo || dbSettings.site_logo || dbSettings.site_logo || dbSettings.hero_image || '';
       const title = dbSettings.site_title || 'enkaprime — Landing Page Development';
       const desc = dbSettings.site_tagline || dbSettings.hero_description || 'enkaprime.com — Landing Page Development';
 
@@ -237,10 +237,10 @@ export default function App() {
       setMeta('twitter:title', title);
       setMeta('twitter:description', desc);
 
-      // Images
-      if (hero) {
-        setMeta('og:image', hero, true);
-        setMeta('twitter:image', hero);
+      // Images (prefer logo over hero banner)
+      if (logo) {
+        setMeta('og:image', logo, true);
+        setMeta('twitter:image', logo);
       }
     } catch (e) {
       console.error('Error updating social meta tags:', e);
