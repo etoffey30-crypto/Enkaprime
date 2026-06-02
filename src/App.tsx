@@ -275,7 +275,7 @@ export default function App() {
   const NAVY_COLOR = '#0F2044';
 
   const NavBar = () => (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/95 to-white/70 shadow-md py-2 font-custom border-b border-gray-100 transition-all duration-300 backdrop-blur-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
           <img src={dbSettings.header_logo || "/newlogo.png"} alt="Enka Prime Consulting Ltd" className="h-16 sm:h-20 lg:h-24 w-auto object-contain" />
