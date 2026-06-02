@@ -281,102 +281,63 @@ export default function Home({ onNavigate, settings }: HomeProps) {
     </section>
   );
 
-  // 3. ABOUT PREVIEW SECTION
+  // 3. ABOUT PREVIEW SECTION - Redesigned master UI
   const renderAboutPreview = () => (
-    <section key="about_preview" className="py-14 sm:py-24 bg-white relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-1/2 h-full opacity-[0.03] bg-gradient-to-br from-custom-secondary to-transparent" />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full opacity-5 bg-custom-secondary" />
-
+    <section key="about_preview" className="py-16 sm:py-24 bg-gray-50 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-        <div className="text-center mb-10 sm:mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-5 transition-all hover:scale-110"
+        <div className="text-center mb-8 sm:mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-5"
             style={{ background: 'rgba(201,168,76,0.12)', color: 'var(--secondary-color)' }}>
             About Enka Prime
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold leading-tight text-custom-primary">
-            {settings.about_title || 'Who We Are'}<br />
-            <span className="text-custom-secondary">Since Day One</span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight text-custom-primary">
+            {settings.about_title || 'Who We Are'}
           </h2>
+          <p className="mt-2 text-lg text-custom-secondary font-semibold">{settings.about_subtitle || 'Since Day One'}</p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-start mb-12 sm:mb-16">
-          
-          {/* Left Text */}
-          <div className="animate-fade-in-left space-y-6 text-left">
-            <p className="text-gray-600 leading-relaxed text-base sm:text-lg transition-all hover:text-gray-800">
-              {settings.about_description || 'Enka Prime Consulting Ltd is a professional services and organisational improvement firm dedicated to helping organisations strengthen operational systems, improve compliance, enhance accountability, and build workforce capability for sustainable performance.'}
-            </p>
-            <p className="text-gray-600 leading-relaxed transition-all hover:text-gray-800">
-              {settings.about_extended || 'Founded on the principle that sustainable organisational performance depends on strong systems rather than skills development alone, we combine practical implementation expertise with structured capacity-building methodologies.'}
-            </p>
-
-            <div className="grid grid-cols-1 gap-3 pt-2">
-              {bullets.map((item) => (
-                <div key={item} className="fly-target fly-trigger flex items-start gap-3 group">
-                  <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-custom-secondary/15">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="var(--secondary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <span className="text-gray-700 text-sm font-medium leading-snug group-hover:text-gray-900 transition-colors">{item}</span>
-                </div>
-              ))}
+        <div className="grid lg:grid-cols-12 gap-8 items-center">
+          {/* Left: Image */}
+          <div className="lg:col-span-7">
+            <div className="rounded-3xl overflow-hidden shadow-2xl">
+              <img
+                src={settings.about_image || "https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg"}
+                alt="Professional consulting"
+                className="w-full h-[420px] object-cover transition-transform duration-700 hover:scale-105"
+              />
             </div>
-
-            <p className="text-gray-500 text-sm italic border-l-4 border-custom-secondary pl-4 py-1 leading-relaxed text-left">
-              {pullQuote}
-            </p>
-
-            <button
-              onClick={() => onNavigate('about')}
-              className="button-custom bg-custom-secondary text-custom-primary inline-flex items-center gap-2 px-8 py-3.5 font-bold tracking-wide transition-all duration-300 hover:scale-105 hover:shadow-lg"
-            >
-              Learn More <ArrowRight size={18} />
-            </button>
+            <div className="mt-4 flex gap-3">
+              <div className="w-28 h-20 rounded-lg overflow-hidden shadow-md border-4 border-white">
+                <img src={settings.team_image || "https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg"} alt="Team" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex-1 bg-white rounded-lg shadow-md p-4 flex flex-col justify-center">
+                <div className="text-sm text-gray-600">Our Approach</div>
+                <div className="text-lg font-bold text-custom-secondary">PRIME System Approach®</div>
+              </div>
+            </div>
           </div>
 
-          {/* Right composition */}
-          <div className="animate-fade-in-right">
-            <div className="relative pb-10 md:pb-0">
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl group border-2 border-custom-secondary/20">
-                <img
-                  src={settings.about_image || "https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg"}
-                  alt="Professional consulting"
-                  className="w-full h-60 sm:h-72 object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-blue-900/50 to-transparent" />
+          {/* Right: Text content */}
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <p className="text-gray-700 leading-relaxed text-base sm:text-lg mb-4">{settings.about_description || 'Enka Prime Consulting Ltd is a professional services and organisational improvement firm dedicated to helping organisations strengthen operational systems, improve compliance, enhance accountability, and build workforce capability for sustainable performance.'}</p>
+              <p className="text-gray-600 leading-relaxed mb-6">{settings.about_extended || 'Founded on the principle that sustainable organisational performance depends on strong systems rather than skills development alone, we combine practical implementation expertise with structured capacity-building methodologies.'}</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {bullets.slice(0,4).map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="mt-1 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-custom-secondary text-white font-bold">✓</div>
+                    <div className="text-sm text-gray-700 font-medium">{item}</div>
+                  </div>
+                ))}
               </div>
 
-              {/* Floating secondary image */}
-              <div className="hidden md:block absolute -bottom-8 -right-5 w-44 h-32 rounded-xl overflow-hidden shadow-xl border-4 border-white">
-                <img
-                  src={settings.team_image || "https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg"}
-                  alt="Team collaboration"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <blockquote className="text-sm italic text-gray-500 border-l-4 border-custom-secondary pl-4 py-2 mb-6">{pullQuote}</blockquote>
 
-              {/* Floating badge */}
-              <div className="hidden md:flex absolute -top-4 -left-4 rounded-2xl shadow-lg px-5 py-3 items-center gap-3 bg-custom-primary border border-custom-secondary/35">
-                <div className="text-sm font-bold text-custom-secondary">PRIME</div>
-                <div className="text-xs text-blue-200 leading-tight text-left">System<br/>Approach®</div>
+              <div className="flex gap-3">
+                <button onClick={() => onNavigate('about')} className="px-6 py-3 rounded-lg bg-custom-secondary text-white font-bold hover:shadow-lg">Learn More</button>
+                <button onClick={() => onNavigate('contact')} className="px-6 py-3 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">Contact Us</button>
               </div>
-            </div>
-
-            {/* Stat mini cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 sm:mt-14">
-              {[
-                { number: '100%', label: 'Professionalism' },
-                { number: '4', label: 'Core Service Areas' },
-                { number: '100%', label: 'Tailored Solutions' },
-              ].map(({ number, label }) => (
-                <div key={label}
-                  className="text-center py-5 px-3 rounded-xl border border-custom-secondary/20 bg-custom-primary/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                >
-                  <div className="text-2xl font-bold mb-1 text-custom-secondary">{number}</div>
-                  <div className="text-xs text-gray-500 leading-tight">{label}</div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
