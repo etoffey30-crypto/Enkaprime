@@ -284,6 +284,10 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   // 3. ABOUT PREVIEW SECTION - Redesigned master UI
   const renderAboutPreview = () => (
     <section key="about_preview" className="py-16 sm:py-24 bg-gray-50 relative overflow-hidden">
+      {/* Decorative golden wash on the left side to match brand accent */}
+      <div className="absolute left-0 top-0 bottom-0 w-1/2 pointer-events-none -z-10">
+        <div style={{ background: 'linear-gradient(180deg, rgba(201,168,76,0.12), rgba(201,168,76,0.03))' }} className="h-full w-full" />
+      </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-5"
@@ -298,13 +302,17 @@ export default function Home({ onNavigate, settings }: HomeProps) {
 
         <div className="grid lg:grid-cols-12 gap-8 items-center">
           {/* Left: Image */}
-          <div className="lg:col-span-7">
-            <div className="rounded-3xl overflow-hidden shadow-2xl">
+          <div className="lg:col-span-7 relative">
+            <div className="rounded-3xl overflow-hidden shadow-2xl relative">
               <img
                 src={settings.about_image || "https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg"}
                 alt="Professional consulting"
                 className="w-full h-[420px] object-cover transition-transform duration-700 hover:scale-105"
               />
+              {/* golden overlay wash */}
+              <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.30), rgba(201,168,76,0.06))', mixBlendMode: 'multiply' }} />
+              {/* subtle radial glow */}
+              <div className="absolute -top-10 -left-10 w-56 h-56 rounded-full opacity-30 pointer-events-none" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(201,168,76,0.22), transparent 40%)' }} />
             </div>
             <div className="mt-4 flex gap-3">
               <div className="w-28 h-20 rounded-lg overflow-hidden shadow-md border-4 border-white">
