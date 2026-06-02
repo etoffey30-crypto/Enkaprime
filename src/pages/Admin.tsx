@@ -266,7 +266,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <img src="/enkaprime/enkaprime-logo.png" alt="Enka Prime" className="h-16 mx-auto mb-4 object-contain" />
+            <img src="/newlogo.png" alt="Enka Prime" className="h-16 mx-auto mb-4 object-contain" />
             <h1 className="text-2xl font-bold text-slate-800">Admin Portal</h1>
             <p className="text-gray-500 text-sm mt-1">Sign in to manage consulting content</p>
           </div>
@@ -1679,7 +1679,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
       {/* Main Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ background: NAVY }}>
         <div className="p-5 border-b border-white/10">
-          <img src="/enkaprime/enkaprime-logo.png" alt="Enka Prime" className="h-10 object-contain" />
+          <img src="/newlogo.png" alt="Enka Prime" className="h-10 object-contain" />
           <div className="text-[10px] mt-2 font-bold text-custom-secondary uppercase tracking-wider" style={{ color: GOLD }}>CMS Admin System</div>
         </div>
 

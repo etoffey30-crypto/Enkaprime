@@ -278,7 +278,7 @@ export default function App() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/95 to-white/70 shadow-md py-2 font-custom border-b border-gray-100 transition-all duration-300 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
-          <img src={dbSettings.site_logo || "/enkaprime/enkaprime-logo.png"} alt="Enka Prime Consulting Ltd" className="h-12 sm:h-14 w-auto object-contain" />
+          <img src={dbSettings.header_logo || "/newlogo.png"} alt="Enka Prime Consulting Ltd" className="h-16 sm:h-20 lg:h-24 w-auto object-contain" />
         </button>
 
         <div className="hidden lg:flex items-center gap-8">
@@ -608,7 +608,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-10 pb-10 border-b border-white/10">
             <div className="md:col-span-2">
-              <img src={dbSettings.site_logo || "/enkaprime/enkaprime-logo.png"} alt="Enka Prime Consulting Ltd" className="h-16 w-auto mb-4 object-contain" />
+              <img src={dbSettings.site_logo || "/CLEAN_LOGO_USE_THIS.png"} alt="Enka Prime Consulting Ltd" className="h-16 w-auto mb-4 object-contain" />
               <p className="text-gray-300 text-sm leading-relaxed mt-4 max-w-sm">
                 {footerDescription || 'Integrated professional solutions that strengthen systems, improve compliance, enhance accountability, and build organisational capacity for sustainable performance.'}
               </p>
