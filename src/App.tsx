@@ -386,7 +386,7 @@ export default function App() {
   );
 
   const SocialRail = () => (
-    <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-4 sm:right-5 sm:gap-5">
+    <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-3 sm:right-4 sm:gap-4">
       {socialLinks.map(({ label, href, icon: Icon, className }) => (
         <a
           key={label}
@@ -395,9 +395,9 @@ export default function App() {
           rel="noopener noreferrer"
           aria-label={label}
           title={label}
-          className={`flex h-12 w-12 items-center justify-center rounded-full text-white shadow-[0_12px_28px_rgba(15,32,68,0.28)] ring-1 ring-white/20 transition-all duration-300 hover:-translate-y-1 hover:scale-105 hover:shadow-[0_16px_36px_rgba(15,32,68,0.35)] sm:h-16 sm:w-16 ${className}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_22px_rgba(15,32,68,0.22)] ring-1 ring-white/18 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_12px_28px_rgba(15,32,68,0.28)] sm:h-12 sm:w-12 ${className}`}
         >
-          <Icon size={26} strokeWidth={2.4} className="sm:h-8 sm:w-8" />
+          <Icon size={20} strokeWidth={2.2} className="sm:h-6 sm:w-6" />
         </a>
       ))}
     </div>

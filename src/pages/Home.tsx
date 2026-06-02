@@ -348,7 +348,7 @@ export default function Home({ onNavigate, settings }: HomeProps) {
           {/* Right: Text content */}
           <div className="lg:col-span-5">
             <div className="bg-white rounded-2xl shadow-lg p-8">
-              <p className="text-gray-700 leading-relaxed text-base sm:text-lg mb-4">{settings.about_description || 'Enka Prime Consulting Ltd is a professional services and organisational improvement firm dedicated to helping organisations strengthen operational systems, improve compliance, enhance accountability, and build workforce capability for sustainable performance.'}</p>
+              <p className="text-gray-700 leading-relaxed text-base sm:text-lg mb-4">{settings.about_description || 'Enka Prime Consulting Ltd is a professional services and organisational improvement firm dedicated to helping organisations strengthen operational systems, improve compliance, enhance accountability, and build workforce capability for sustainable performance. We combine practical implementation expertise with structured capacity-building methodologies to deliver measurable and lasting results and help organisations build the systems, structures, and capabilities that drive long-term performance and institutional resilience.'}</p>
               <p className="text-gray-600 leading-relaxed mb-6">{settings.about_extended || 'Founded on the principle that sustainable organisational performance depends on strong systems rather than skills development alone, we combine practical implementation expertise with structured capacity-building methodologies.'}</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
