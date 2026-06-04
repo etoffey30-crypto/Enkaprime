@@ -645,7 +645,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-10 pb-10 border-b border-white/10">
             <div className="md:col-span-2">
-              <img src={dbSettings.site_logo || "/CLEAN_LOGO_USE_THIS.png"} alt="Enka Prime Consulting Ltd" className="h-16 w-auto mb-4 object-contain" />
+              <img src={dbSettings.footer_logo || "/white-enka-prime-logo.png"} alt="Enka Prime Consulting Ltd" className="h-16 w-auto mb-4 object-contain" />
               <p className="text-gray-300 text-sm leading-relaxed mt-4 max-w-sm">
                 {footerDescription || 'Integrated professional solutions that strengthen systems, improve compliance, enhance accountability, and build organisational capacity for sustainable performance.'}
               </p>
