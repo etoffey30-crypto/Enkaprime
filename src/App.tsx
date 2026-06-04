@@ -77,9 +77,14 @@ export default function App() {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const trigger = target.closest('.fly-trigger');
+      // Avoid triggering animations when interacting with form controls
       if (!trigger) return;
+      const clickedControl = target.closest('input,textarea,select,button') as HTMLElement | null;
+      if (clickedControl) return;
+      if ((target as HTMLElement).isContentEditable) return;
       const scope = (trigger.closest('section') as HTMLElement) || document.documentElement;
       const nodes = Array.from(scope.querySelectorAll<HTMLElement>('.fly-target'));
+      const active = document.activeElement as HTMLElement | null;
       nodes.forEach((el, i) => {
         // reset to allow re-trigger
         el.classList.remove('fly-in');
@@ -88,6 +93,12 @@ export default function App() {
         // cleanup after animation
         setTimeout(() => el.classList.remove('fly-in'), 1000 + i * 80);
       });
+      // if a form control had focus before the animation, restore it after animations finish
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+        setTimeout(() => {
+          try { active.focus(); } catch (e) { /* ignore */ }
+        }, 1000 + nodes.length * 80 + 10);
+      }
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
