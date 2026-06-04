@@ -274,7 +274,7 @@ export default function App() {
     ? dbProgrammes
     : dbProgrammes.filter(p => p.category === activeCategory);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
       name: nameRef.current?.value || '',
