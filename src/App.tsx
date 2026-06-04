@@ -283,6 +283,23 @@ export default function App() {
     }, 3000);
   };
 
+  // Preserve caret/selection when updating controlled inputs
+  const handleFieldInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+    const name = target.name as keyof typeof formData;
+    const value = target.value;
+    const selStart = (target.selectionStart ?? value.length);
+    const selEnd = (target.selectionEnd ?? selStart);
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // restore selection on next frame
+    requestAnimationFrame(() => {
+      const el = document.getElementById(target.id) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el && typeof el.setSelectionRange === 'function') {
+        try { el.setSelectionRange(selStart, selEnd); } catch (err) { /* ignore */ }
+      }
+    });
+  };
+
   const navigate = (page: string) => {
     window.location.hash = page;
     setCurrentPage(page);
@@ -616,7 +633,10 @@ export default function App() {
                           autoComplete={field.autoComplete}
                           placeholder={field.placeholder}
                           value={formData[field.name as keyof typeof formData]}
-                          onChange={e => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                          onChange={handleFieldInput}
+                          onKeyDown={e => e.stopPropagation()}
+                          onKeyUp={e => e.stopPropagation()}
+                          onInput={e => e.stopPropagation()}
                           onMouseDown={e => e.stopPropagation()}
                           onTouchStart={e => e.stopPropagation()}
                           onFocus={e => e.stopPropagation()}
@@ -637,7 +657,10 @@ export default function App() {
                       autoComplete="off"
                       placeholder="Which programmes are you interested in? Any specific requirements?"
                       value={formData.message}
-                      onChange={e => setFormData(prev => ({ ...prev, message: e.target.value }))}
+                      onChange={handleFieldInput}
+                      onKeyDown={e => e.stopPropagation()}
+                      onKeyUp={e => e.stopPropagation()}
+                      onInput={e => e.stopPropagation()}
                       onMouseDown={e => e.stopPropagation()}
                       onTouchStart={e => e.stopPropagation()}
                       onFocus={e => e.stopPropagation()}
