@@ -276,22 +276,40 @@ export default function App() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Read values from uncontrolled refs
     const payload = {
       name: nameRef.current?.value || '',
       email: emailRef.current?.value || '',
       organization: orgRef.current?.value || '',
       message: messageRef.current?.value || '',
     };
-    // TODO: send payload to backend
+
     setSubmitted(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch('https://formspree.io/f/maqznnrw', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        // show a brief failure then reset submitted state
+        console.error('Formspree error', res.statusText);
+        setTimeout(() => setSubmitted(false), 2000);
+        return;
+      }
+
+      // Success — clear fields
       if (nameRef.current) nameRef.current.value = '';
       if (emailRef.current) emailRef.current.value = '';
       if (orgRef.current) orgRef.current.value = '';
       if (messageRef.current) messageRef.current.value = '';
-      setSubmitted(false);
-    }, 3000);
+
+      // Optionally you can notify the team or log here. Formspree will forward to the configured email (ernest@enkaprime.com).
+      setTimeout(() => setSubmitted(false), 2500);
+    } catch (err) {
+      console.error('Network error sending contact form', err);
+      setTimeout(() => setSubmitted(false), 2000);
+    }
   };
 
   // Refs for uncontrolled inputs
