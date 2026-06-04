@@ -434,7 +434,7 @@ export default function App() {
   );
 
   const SocialRail = () => (
-    <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-3 sm:right-4 sm:gap-4">
+    <div className="fixed right-3 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-3 sm:right-4 sm:gap-4">
       {socialLinks.map(({ label, href, icon: Icon, className }) => (
         <a
           key={label}
@@ -617,6 +617,9 @@ export default function App() {
                           placeholder={field.placeholder}
                           value={formData[field.name as keyof typeof formData]}
                           onChange={e => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                          onMouseDown={e => e.stopPropagation()}
+                          onTouchStart={e => e.stopPropagation()}
+                          onFocus={e => e.stopPropagation()}
                           className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
                         />
                       </div>
@@ -635,6 +638,9 @@ export default function App() {
                       placeholder="Which programmes are you interested in? Any specific requirements?"
                       value={formData.message}
                       onChange={e => setFormData(prev => ({ ...prev, message: e.target.value }))}
+                      onMouseDown={e => e.stopPropagation()}
+                      onTouchStart={e => e.stopPropagation()}
+                      onFocus={e => e.stopPropagation()}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 resize-none transition-all"
                     />
                   </div>
