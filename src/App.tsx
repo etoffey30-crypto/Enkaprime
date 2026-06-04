@@ -576,7 +576,7 @@ export default function App() {
               </div>
             </div>
 
-            <div>
+            <div className="relative z-50">
               {submitted ? (
                 <div className="h-full min-h-80 flex flex-col items-center justify-center text-center p-10 rounded-2xl"
                   style={{ background: `${NAVY}05`, border: `1px solid ${GOLD}35` }}>
@@ -587,31 +587,40 @@ export default function App() {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {[
-                    { name: 'name', label: 'Full Name', type: 'text', placeholder: 'Your full name' },
-                    { name: 'email', label: 'Email Address', type: 'email', placeholder: 'your@email.com' },
-                    { name: 'organization', label: 'Organisation', type: 'text', placeholder: 'Your organisation name' },
-                  ].map(field => (
-                    <div key={field.name}>
-                      <label className="block text-sm font-semibold mb-2" style={{ color: NAVY }}>
-                        {field.label}
-                      </label>
-                      <input
-                        type={field.type}
-                        required
-                        placeholder={field.placeholder}
-                        value={formData[field.name as keyof typeof formData]}
-                        onChange={e => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
-                      />
-                    </div>
-                  ))}
+                    { name: 'name', label: 'Full Name', type: 'text', placeholder: 'Your full name', autoComplete: 'name' },
+                    { name: 'email', label: 'Email Address', type: 'email', placeholder: 'your@email.com', autoComplete: 'email' },
+                    { name: 'organization', label: 'Organisation', type: 'text', placeholder: 'Your organisation name', autoComplete: 'organization' },
+                  ].map(field => {
+                    const id = `contact-${field.name}`;
+                    return (
+                      <div key={field.name}>
+                        <label htmlFor={id} className="block text-sm font-semibold mb-2" style={{ color: NAVY }}>
+                          {field.label}
+                        </label>
+                        <input
+                          id={id}
+                          name={field.name}
+                          type={field.type}
+                          required
+                          autoComplete={field.autoComplete}
+                          placeholder={field.placeholder}
+                          value={formData[field.name as keyof typeof formData]}
+                          onChange={e => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
+                        />
+                      </div>
+                    );
+                  })}
                   <div>
                     <label className="block text-sm font-semibold mb-2" style={{ color: NAVY }}>
                       Training Interest / Message
                     </label>
                     <textarea
+                      id="contact-message"
+                      name="message"
                       rows={4}
                       required
+                      autoComplete="off"
                       placeholder="Which programmes are you interested in? Any specific requirements?"
                       value={formData.message}
                       onChange={e => setFormData(prev => ({ ...prev, message: e.target.value }))}
