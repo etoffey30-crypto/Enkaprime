@@ -276,12 +276,29 @@ export default function App() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Read values from uncontrolled refs
+    const payload = {
+      name: nameRef.current?.value || '',
+      email: emailRef.current?.value || '',
+      organization: orgRef.current?.value || '',
+      message: messageRef.current?.value || '',
+    };
+    // TODO: send payload to backend
     setSubmitted(true);
     setTimeout(() => {
-      setFormData({ name: '', email: '', organization: '', message: '' });
+      if (nameRef.current) nameRef.current.value = '';
+      if (emailRef.current) emailRef.current.value = '';
+      if (orgRef.current) orgRef.current.value = '';
+      if (messageRef.current) messageRef.current.value = '';
       setSubmitted(false);
     }, 3000);
   };
+
+  // Refs for uncontrolled inputs
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const orgRef = useRef<HTMLInputElement | null>(null);
+  const messageRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Preserve caret/selection when updating controlled inputs
   const handleFieldInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -626,22 +643,22 @@ export default function App() {
                           {field.label}
                         </label>
                         <input
-                          id={id}
-                          name={field.name}
-                          type={field.type}
-                          required
-                          autoComplete={field.autoComplete}
-                          placeholder={field.placeholder}
-                          value={formData[field.name as keyof typeof formData]}
-                          onChange={handleFieldInput}
-                          onKeyDown={e => e.stopPropagation()}
-                          onKeyUp={e => e.stopPropagation()}
-                          onInput={e => e.stopPropagation()}
-                          onMouseDown={e => e.stopPropagation()}
-                          onTouchStart={e => e.stopPropagation()}
-                          onFocus={e => e.stopPropagation()}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
-                        />
+                              id={id}
+                              ref={field.name === 'name' ? nameRef : field.name === 'email' ? emailRef : orgRef}
+                              name={field.name}
+                              type={field.type}
+                              required
+                              autoComplete={field.autoComplete}
+                              placeholder={field.placeholder}
+                              defaultValue={formData[field.name as keyof typeof formData]}
+                              onKeyDown={e => e.stopPropagation()}
+                              onKeyUp={e => e.stopPropagation()}
+                              onInput={e => e.stopPropagation()}
+                              onMouseDown={e => e.stopPropagation()}
+                              onTouchStart={e => e.stopPropagation()}
+                              onFocus={e => e.stopPropagation()}
+                              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
+                            />
                       </div>
                     );
                   })}
@@ -651,13 +668,13 @@ export default function App() {
                     </label>
                     <textarea
                       id="contact-message"
+                      ref={messageRef}
                       name="message"
                       rows={4}
                       required
                       autoComplete="off"
                       placeholder="Which programmes are you interested in? Any specific requirements?"
-                      value={formData.message}
-                      onChange={handleFieldInput}
+                      defaultValue={formData.message}
                       onKeyDown={e => e.stopPropagation()}
                       onKeyUp={e => e.stopPropagation()}
                       onInput={e => e.stopPropagation()}
