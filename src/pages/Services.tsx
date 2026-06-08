@@ -60,20 +60,20 @@ export default function Services({ onNavigate }: ServicesProps) {
 
   useEffect(() => {
     async function loadServices() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('services')
         .select('*')
         .eq('is_active', true)
         .order('sort_order');
       if (data && data.length > 0) {
         const mapped = data.map(item => ({
-          id: item.code,
-          slug: item.code === 'training' ? 'training' : `service-${item.code}`,
-          icon: ICON_MAP[item.code] || Database,
+          id: item.slug,
+          slug: item.slug === 'training' ? 'training' : `service-${item.slug}`,
+          icon: ICON_MAP[item.slug] || Database,
           title: item.title,
-          short: item.description,
+          short: item.short_description,
           image: item.image_url,
-          accent: item.code === 'records' ? '#1a6b9a' : item.code === 'asset' ? '#2d6a4f' : item.code === 'iso' ? '#7b2d8b' : '#9a4b1a',
+          accent: item.slug === 'records' ? '#1a6b9a' : item.slug === 'asset' ? '#2d6a4f' : item.slug === 'iso' ? '#7b2d8b' : '#9a4b1a',
         }));
         setPillars(mapped);
       } else {

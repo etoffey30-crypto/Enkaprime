@@ -16,7 +16,7 @@ const CATEGORY_META: Record<string, { color: string; bg: string; desc: string }>
 };
 
 interface TrainingProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, message?: string) => void;
 }
 
 export default function Training({ onNavigate }: TrainingProps) {
@@ -124,58 +124,63 @@ export default function Training({ onNavigate }: TrainingProps) {
         </div>
       </section>
 
-      {/* ── FEATURED PROGRAMMES ── */}
-      {featured.length > 0 && (
-        <section className="py-14 sm:py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center gap-3 mb-10">
-              <Star size={20} className="fill-current" style={{ color: GOLD, fill: GOLD }} />
-              <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Featured Programmes</h2>
+      {/* ── PROGRAMME CATEGORIES ── */}
+      <section className="py-14 sm:py-20 bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10 sm:mb-14">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4"
+              style={{ background: `${GOLD}18`, color: GOLD }}>
+              Learning Tracks
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {featured.map(prog => {
-                const meta = CATEGORY_META[prog.category] || CATEGORY_META['General'];
-                return (
-                  <div key={prog.id} className="p-5 sm:p-6 rounded-xl sm:rounded-2xl border hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group"
-                    style={{ borderColor: `${GOLD}40`, background: `${GOLD}05` }}>
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg" style={{ background: meta.bg, color: meta.color }}>
-                        {prog.category}
-                      </span>
-                      <Star size={14} style={{ color: GOLD, fill: GOLD }} />
-                    </div>
-                    <div className="text-xs font-bold tracking-widest uppercase mb-2" style={{ color: GOLD }}>{prog.code}</div>
-                    <h3 className="font-bold text-sm mb-3 leading-snug" style={{ color: NAVY }}>{prog.title}</h3>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                        <Clock size={12} />
-                        {prog.days} {prog.days === 1 ? 'Day' : 'Days'}
-                      </div>
-                      <button
-                        onClick={() => onNavigate('contact')}
-                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105"
-                        style={{ background: NAVY, color: 'white' }}
-                      >
-                        Enquire
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <h2 className="text-3xl font-extrabold" style={{ color: NAVY }}>
+              Our Programme <span style={{ color: GOLD }}>Categories</span>
+            </h2>
+            <p className="text-gray-500 max-w-lg mx-auto text-sm mt-2">
+              Browse our specialised training tracks designed for organizational excellence and workforce capability.
+            </p>
           </div>
-        </section>
-      )}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+            {Object.entries(CATEGORY_META).map(([name, meta]) => (
+              <div
+                key={name}
+                onClick={() => {
+                  setActiveCategory(name);
+                  const el = document.getElementById('training-catalogue');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="group cursor-pointer bg-gray-50 hover:bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 hover:border-yellow-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+              >
+                <div>
+                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg inline-block mb-4" style={{ background: meta.bg, color: meta.color }}>
+                    {name}
+                  </span>
+                  <h3 className="font-extrabold text-base mb-2 group-hover:text-yellow-600 transition-colors" style={{ color: NAVY }}>
+                    {name} {name === 'General' ? 'Professional Development' : 'Training'}
+                  </h3>
+                  <p className="text-gray-500 text-xs leading-relaxed">{meta.desc}</p>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-bold mt-4 transition-colors" style={{ color: GOLD }}>
+                  View Courses <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      {/* ── TRAINING CATALOGUE ── */}
+      {/* ── TRAINING CALENDAR & CATALOGUE (CORE FEATURE) ── */}
       <section id="training-catalogue" className="py-14 sm:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
             <div>
-              <h2 className="text-2xl font-extrabold mb-1" style={{ color: NAVY }}>
-                <span style={{ color: GOLD }}>Training</span> Catalogue
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-3"
+                style={{ background: 'rgba(201,168,76,0.12)', color: NAVY }}>
+                <Calendar size={12} className="text-yellow-600" /> Training Schedule
+              </div>
+              <h2 className="text-3xl font-extrabold mb-1" style={{ color: NAVY }}>
+                Upcoming <span style={{ color: GOLD }}>Training Calendar</span>
               </h2>
-              <p className="text-gray-500 text-sm">Browse all {programmes.length} available programmes</p>
+              <p className="text-gray-500 text-sm">Select a category below to filter upcoming training schedules and register your team.</p>
             </div>
             <div className="flex items-center gap-2">
               <Filter size={14} className="text-gray-400" />
@@ -192,12 +197,12 @@ export default function Training({ onNavigate }: TrainingProps) {
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className="px-4 py-2 text-xs font-bold rounded-full transition-all duration-200 whitespace-nowrap"
+                  className="px-4 py-2.5 text-xs font-bold rounded-full transition-all duration-200 whitespace-nowrap shadow-sm border"
                   style={isActive
-                    ? { background: NAVY, color: 'white' }
+                    ? { background: NAVY, color: 'white', borderColor: NAVY }
                     : meta
-                      ? { background: meta.bg, color: meta.color }
-                      : { background: '#f3f4f6', color: '#374151' }
+                      ? { background: meta.bg, color: meta.color, borderColor: 'transparent' }
+                      : { background: '#f3f4f6', color: '#374151', borderColor: 'transparent' }
                   }
                 >
                   {cat} {cat !== 'All' && `(${programmes.filter(p => p.category === cat).length})`}
@@ -208,56 +213,66 @@ export default function Training({ onNavigate }: TrainingProps) {
 
           {/* Category description */}
           {activeCategory !== 'All' && CATEGORY_META[activeCategory] && (
-            <div className="mb-6 p-4 rounded-xl text-sm font-medium"
+            <div className="mb-6 p-4 rounded-xl text-sm font-medium border border-gray-100"
               style={{ background: CATEGORY_META[activeCategory].bg, color: CATEGORY_META[activeCategory].color }}>
               {CATEGORY_META[activeCategory].desc}
             </div>
           )}
 
-          {/* Programme list */}
+          {/* Programme list/table */}
           {loading ? (
             <div className="text-center py-16">
               <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">Loading programmes...</p>
+              <p className="text-gray-400 text-sm font-semibold">Loading calendar details...</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">
-              No programmes found in this category.
+            <div className="text-center py-16 text-gray-400 text-sm bg-white rounded-2xl border border-dashed border-gray-200">
+              No upcoming programmes scheduled in this category.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {filtered.map(prog => {
                 const meta = CATEGORY_META[prog.category] || CATEGORY_META['General'];
                 return (
                   <div
                     key={prog.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-3 p-4 sm:p-5 rounded-xl bg-white hover:bg-yellow-50/40 transition-colors duration-200 group border border-gray-100 hover:border-yellow-200"
+                    className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white hover:bg-yellow-50/20 transition-all duration-300 group border border-gray-100 hover:border-yellow-300 hover:shadow-md"
                   >
-                    <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-                      <span className="text-xs font-extrabold tracking-widest px-3 py-1.5 rounded-lg flex-shrink-0"
-                        style={{ background: `${NAVY}0d`, color: NAVY }}>
-                        {prog.code}
-                      </span>
-                      <div>
-                        <span className="text-gray-800 font-semibold text-sm">{prog.title}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
+                      {/* Date Badge */}
+                      <div className="flex items-center gap-2 text-xs font-bold text-gray-500 bg-gray-50 px-3.5 py-2 rounded-xl border border-gray-100 group-hover:border-yellow-200 group-hover:bg-yellow-50/30 transition-colors duration-300 min-w-[170px] sm:justify-center">
+                        <Calendar size={14} className="text-yellow-600" />
+                        <span>{prog.upcoming_date || 'Schedule on Request'}</span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-extrabold tracking-widest px-2.5 py-1 rounded bg-slate-100 text-slate-700">
+                            {prog.code}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ background: meta.bg, color: meta.color }}>
+                            {prog.category}
+                          </span>
+                          <span className="text-xs font-medium text-gray-500 flex items-center gap-1 ml-1">
+                            <Clock size={12} /> {prog.days} {prog.days === 1 ? 'Day' : 'Days'}
+                          </span>
+                        </div>
+                        <h3 className="text-gray-800 font-bold text-sm sm:text-base mt-2 group-hover:text-yellow-600 transition-colors leading-snug">
+                          {prog.title}
+                        </h3>
                         {prog.description && (
-                          <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{prog.description}</p>
+                          <p className="text-gray-500 text-xs mt-1.5 leading-relaxed">{prog.description}</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0 sm:pl-0">
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg" style={{ background: meta.bg, color: meta.color }}>
-                        {prog.category}
-                      </span>
-                      <span className="text-xs font-bold px-3 py-1.5 rounded-lg" style={{ background: `${GOLD}22`, color: '#8a6b1e' }}>
-                        {prog.days} {prog.days === 1 ? 'Day' : 'Days'}
-                      </span>
+                    
+                    <div className="flex items-center justify-end flex-shrink-0 pt-2 lg:pt-0">
                       <button
-                        onClick={() => onNavigate('contact')}
-                        className="text-xs font-bold px-3 py-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200"
-                        style={{ background: NAVY, color: 'white' }}
+                        onClick={() => onNavigate('contact', `Hello Enka Prime, I would like to register my team for the upcoming training session: ${prog.code} - ${prog.title} scheduled for ${prog.upcoming_date || 'Schedule on Request'}.`)}
+                        className="text-xs font-bold px-5 py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg w-full lg:w-auto text-center bg-slate-900 text-white hover:bg-slate-800"
+                        style={{ backgroundColor: NAVY }}
                       >
-                        Enquire
+                        Register Now
                       </button>
                     </div>
                   </div>
@@ -268,6 +283,58 @@ export default function Training({ onNavigate }: TrainingProps) {
         </div>
       </section>
 
+      {/* ── FEATURED PROGRAMMES ── */}
+      {featured.length > 0 && (
+        <section className="py-14 sm:py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="flex items-center gap-3 mb-10 border-b pb-4">
+              <Star size={20} className="fill-current" style={{ color: GOLD, fill: GOLD }} />
+              <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Featured Programmes</h2>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+              {featured.map(prog => {
+                const meta = CATEGORY_META[prog.category] || CATEGORY_META['General'];
+                return (
+                  <div key={prog.id} className="p-6 rounded-2xl border hover:shadow-xl hover:-translate-y-1.5 transition-all duration-500 group flex flex-col justify-between"
+                    style={{ borderColor: `${GOLD}40`, background: `${GOLD}05` }}>
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg" style={{ background: meta.bg, color: meta.color }}>
+                          {prog.category}
+                        </span>
+                        <div className="flex items-center gap-0.5">
+                          <Star size={12} className="fill-current text-yellow-500" />
+                          <Star size={12} className="fill-current text-yellow-500" />
+                          <Star size={12} className="fill-current text-yellow-500" />
+                          <Star size={12} className="fill-current text-yellow-500" />
+                          <Star size={12} className="fill-current text-yellow-500" />
+                        </div>
+                      </div>
+                      <div className="text-xs font-bold tracking-widest uppercase mb-1.5" style={{ color: GOLD }}>{prog.code}</div>
+                      <h3 className="font-extrabold text-sm sm:text-base mb-3 leading-snug text-slate-800" style={{ color: NAVY }}>{prog.title}</h3>
+                      <p className="text-gray-500 text-xs leading-relaxed mb-6 line-clamp-3">{prog.description}</p>
+                    </div>
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 font-semibold bg-gray-50 px-2 py-1 rounded">
+                        <Clock size={12} />
+                        {prog.days} {prog.days === 1 ? 'Day' : 'Days'}
+                      </div>
+                      <button
+                        onClick={() => onNavigate('contact', `Hello Enka Prime, I would like to enquire about the featured training programme: ${prog.code} - ${prog.title}.`)}
+                        className="text-xs font-bold px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 bg-slate-900 text-white hover:bg-slate-800"
+                        style={{ backgroundColor: NAVY }}
+                      >
+                        Enquire
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── REGISTRATION CTA ── */}
       <section className="py-14 sm:py-24 relative overflow-hidden">
         <div className="absolute inset-0">
@@ -275,7 +342,7 @@ export default function Training({ onNavigate }: TrainingProps) {
           <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${NAVY}F2, ${NAVY}D0)` }} />
         </div>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10">
-          <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-5">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-5 leading-tight">
             Ready to Upskill <span style={{ color: GOLD }}>Your Team?</span>
           </h2>
           <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
@@ -283,14 +350,14 @@ export default function Training({ onNavigate }: TrainingProps) {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => onNavigate('contact')}
+              onClick={() => onNavigate('contact', 'Hello Enka Prime, I would like to enroll my team in a corporate training programme. Please get back to me to coordinate details.')}
               className="inline-flex items-center justify-center gap-2 px-8 sm:px-10 py-4 font-bold text-base rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               style={{ background: GOLD, color: NAVY }}
             >
               Enroll Your Team <ArrowRight size={18} />
             </button>
             <button
-              onClick={() => onNavigate('contact')}
+              onClick={() => onNavigate('contact', 'Hello Enka Prime, I am interested in requesting a custom corporate training programme tailored specifically to our organisation.')}
               className="inline-flex items-center justify-center gap-2 px-8 sm:px-10 py-4 font-bold text-base rounded-xl transition-all duration-300 hover:scale-105"
               style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
             >

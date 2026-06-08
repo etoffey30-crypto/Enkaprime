@@ -13,10 +13,10 @@ interface HomeProps {
 
 // Fallback services
 const FALLBACK_SERVICES = [
-  { code: 'records', title: 'Records Digitalisation', description: 'Structured digital records, document workflows, metadata tagging, and secure retrieval systems for stronger institutional memory.', image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg' },
-  { code: 'asset', title: 'Asset Tagging & Registers', description: 'Physical asset verification, barcode or QR tagging, register development, and lifecycle visibility across locations.', image_url: 'https://images.pexels.com/photos/6169668/pexels-photo-6169668.jpeg' },
-  { code: 'iso', title: 'ISO Implementation Support', description: 'Gap assessments, process documentation, internal audit support, and ISO-aligned systems for operational consistency.', image_url: 'https://images.pexels.com/photos/5716001/pexels-photo-5716001.jpeg' },
-  { code: 'training', title: 'Training & Capacity Building', description: 'Custom in-house programmes that strengthen workforce capability, compliance culture, and practical workplace performance.', image_url: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg' },
+  { slug: 'records', title: 'Records Digitalisation', short_description: 'Structured digital records, document workflows, metadata tagging, and secure retrieval systems for stronger institutional memory.', image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg' },
+  { slug: 'asset', title: 'Asset Tagging & Registers', short_description: 'Physical asset verification, barcode or QR tagging, register development, and lifecycle visibility across locations.', image_url: 'https://images.pexels.com/photos/6169668/pexels-photo-6169668.jpeg' },
+  { slug: 'iso', title: 'ISO Implementation Support', short_description: 'Gap assessments, process documentation, internal audit support, and ISO-aligned systems for operational consistency.', image_url: 'https://images.pexels.com/photos/5716001/pexels-photo-5716001.jpeg' },
+  { slug: 'training', title: 'Training & Capacity Building', short_description: 'Custom in-house programmes that strengthen workforce capability, compliance culture, and practical workplace performance.', image_url: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg' },
 ];
 
 // Industries served data
@@ -415,16 +415,16 @@ export default function Home({ onNavigate, settings }: HomeProps) {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
-            {services.slice(0, 6).map((service, idx) => {
-              const Icon = iconMap[service.code] || BookOpen;
+            {services.slice(0, 6).map((service) => {
+              const Icon = iconMap[service.slug] || BookOpen;
               return (
                 <div
-                  key={service.code}
+                  key={service.slug}
                   className="group relative overflow-hidden rounded-xl sm:rounded-2xl shadow-md transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 border border-gray-100 flex flex-col bg-white text-left hover:border-custom-secondary/40"
                 >
                   <div className="relative h-48 overflow-hidden bg-gray-200">
                     <img
-                      src={imageMap[service.code] || service.image_url}
+                      src={imageMap[service.slug] || service.image_url}
                       alt={service.title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
@@ -434,7 +434,7 @@ export default function Home({ onNavigate, settings }: HomeProps) {
                       <Icon size={22} className="text-custom-primary group-hover:text-white" />
                     </div>
                   </div>
-
+ 
                   <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
                     <div>
                       <span className="text-xs font-bold tracking-widest uppercase text-custom-secondary mb-1.5 block">
@@ -444,10 +444,10 @@ export default function Home({ onNavigate, settings }: HomeProps) {
                         {service.title}
                       </h3>
                       <p className="text-gray-600 text-xs leading-relaxed mb-4">
-                        {service.description}
+                        {service.short_description}
                       </p>
                     </div>
-
+ 
                     <button
                       onClick={() => onNavigate('services')}
                       className="flex items-center gap-1 text-xs font-bold text-custom-secondary mt-2 hover:gap-2 transition-all"

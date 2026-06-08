@@ -16,10 +16,10 @@ type AdminTab = 'dashboard' | 'pages' | 'services' | 'programmes' | 'design_syst
 interface SiteSetting { id: string; key: string; value: string; updated_at: string }
 interface Service { 
   id: string; 
-  code: string; 
+  slug: string; 
   title: string; 
-  description: string; 
-  full_description: string; 
+  short_description: string; 
+  long_description: string; 
   image_url: string; 
   sort_order: number; 
   is_active: boolean; 
@@ -31,7 +31,7 @@ interface Service {
   created_at: string; 
   updated_at: string; 
 }
-interface Programme { id: string; code: string; title: string; days: number; category: string; is_active: boolean; is_featured: boolean; description: string; created_at: string; updated_at: string }
+interface Programme { id: string; code: string; title: string; days: number; category: string; is_active: boolean; is_featured: boolean; description: string; upcoming_date: string; created_at: string; updated_at: string }
 interface CourseModule { id: string; code: string; title: string; description: string; duration: string }
 
 export default function Admin({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -169,6 +169,13 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
 
   // ─── Service CRUD ───
   const saveService = async (svc: Partial<Service>) => {
+    if (svc.title) {
+      const duplicate = services.find(s => s.id !== svc.id && s.title.trim().toLowerCase() === svc.title.trim().toLowerCase());
+      if (duplicate) {
+        showToast('A service with this title already exists. Titles must be unique.', 'error');
+        return;
+      }
+    }
     if (svc.id) {
       const { error } = await supabase.from('services').update({ ...svc, updated_at: new Date().toISOString() }).eq('id', svc.id);
       if (error) { showToast(error.message, 'error'); return; }
@@ -535,7 +542,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     useEffect(() => {
       if (selectedService) {
         setTitle(selectedService.title || '');
-        setDescription(selectedService.description || '');
+        setDescription(selectedService.short_description || '');
         setTagline(selectedService.tagline || '');
         setImageUrl(selectedService.image_url || '');
         setComponents(selectedService.components || []);
@@ -554,7 +561,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
       const payload: Partial<Service> = {
         id: selectedService.id,
         title,
-        description,
+        short_description: description,
         tagline,
         image_url: imageUrl,
         components,
@@ -595,7 +602,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
               >
                 <div>
                   <div className="font-bold text-sm text-slate-800">{svc.title.split(' & ')[0]}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">{svc.code}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">{svc.slug}</div>
                 </div>
                 <div className={`text-[10px] px-2 py-0.5 rounded font-bold ${svc.is_active ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
                   {svc.is_active ? 'Active' : 'Inactive'}
@@ -612,7 +619,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
               <div className="flex items-center justify-between border-b pb-4">
                 <div>
                   <h3 className="font-bold text-slate-800 text-base">Edit Service: {selectedService.title.split(' & ')[0]}</h3>
-                  <p className="text-gray-400 text-xs mt-0.5">Code: {selectedService.code.toUpperCase()}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">Code: {selectedService.slug.toUpperCase()}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 font-semibold">Active Status:</span>
@@ -664,7 +671,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
                 <ImageUploadField label="Service Header / Banner Image" value={imageUrl} onChange={setImageUrl} />
 
                 {/* Consulting Fields (Components, Pain Points, Solutions, Benefits) */}
-                {selectedService.code !== 'training' && (
+                {selectedService.slug !== 'training' && (
                   <div className="space-y-6 pt-4 border-t border-gray-100">
                     <h4 className="font-bold text-slate-800 text-sm">Detailed Consulting Configuration</h4>
 
@@ -1034,7 +1041,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
               <p className="text-xs text-gray-500">Edit core training subjects visible in the training catalogue.</p>
             </div>
             <button
-              onClick={() => setEditingProgramme({ code: '', title: '', days: 2, category: 'General', is_active: true, is_featured: false, description: '' })}
+              onClick={() => setEditingProgramme({ code: '', title: '', days: 2, category: 'General', is_active: true, is_featured: false, description: '', upcoming_date: '' })}
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all"
               style={{ backgroundColor: NAVY }}
             >
@@ -1066,6 +1073,10 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Duration (Days)</label>
                   <input type="number" min={1} value={editingProgramme.days || 1} onChange={e => setEditingProgramme({ ...editingProgramme, days: parseInt(e.target.value) })} className="w-full px-3 py-2 rounded-lg border text-sm" />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Upcoming Date / Schedule</label>
+                  <input type="text" value={editingProgramme.upcoming_date || ''} onChange={e => setEditingProgramme({ ...editingProgramme, upcoming_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. June 10-12, 2026" />
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Brief Description</label>
                   <textarea rows={2} value={editingProgramme.description || ''} onChange={e => setEditingProgramme({ ...editingProgramme, description: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" />
@@ -1087,6 +1098,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">{prog.code}</span>
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800" style={{ color: '#8a6b1e', background: `${GOLD}22` }}>{prog.category}</span>
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-600">{prog.days} Days</span>
+                    {prog.upcoming_date && <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">{prog.upcoming_date}</span>}
                     {prog.is_featured && <span className="text-[9px] font-extrabold text-yellow-600 uppercase">★ Featured</span>}
                   </div>
                   <h4 className="text-xs font-bold text-slate-800">{prog.title}</h4>

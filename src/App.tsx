@@ -15,8 +15,9 @@ import Admin from './pages/Admin';
 const NAV_LINKS = [
   { label: 'Home', href: 'home' },
   { label: 'About Us', href: 'about' },
-  { label: 'Our Solutions', href: 'services', hasDropdown: true },
-  { label: 'Contact', href: 'contact' },
+  { label: 'Services', href: 'services', hasDropdown: true },
+  { label: 'Upcoming Training', href: 'upcoming-training' },
+  { label: 'Contact Us', href: 'contact' },
 ];
 
 const SERVICE_DROPDOWN = [
@@ -205,7 +206,15 @@ export default function App() {
   ];
 
   const handleNavClick = (link: { label: string; href: string; link_type?: string }) => {
-    if (link.link_type === 'external') {
+    if (link.href === 'upcoming-training') {
+      navigate('training');
+      setTimeout(() => {
+        const el = document.getElementById('training-catalogue');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 300);
+    } else if (link.link_type === 'external') {
       window.open(link.href, '_blank');
     } else if (link.link_type === 'section') {
       navigate('home');
@@ -318,24 +327,15 @@ export default function App() {
   const orgRef = useRef<HTMLInputElement | null>(null);
   const messageRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Preserve caret/selection when updating controlled inputs
-  const handleFieldInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
-    const name = target.name as keyof typeof formData;
-    const value = target.value;
-    const selStart = (target.selectionStart ?? value.length);
-    const selEnd = (target.selectionEnd ?? selStart);
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // restore selection on next frame
-    requestAnimationFrame(() => {
-      const el = document.getElementById(target.id) as HTMLInputElement | HTMLTextAreaElement | null;
-      if (el && typeof el.setSelectionRange === 'function') {
-        try { el.setSelectionRange(selStart, selEnd); } catch (err) { /* ignore */ }
-      }
-    });
-  };
 
-  const navigate = (page: string) => {
+
+  const navigate = (page: string, prefilledMessage?: string) => {
+    if (prefilledMessage) {
+      setFormData(prev => ({ ...prev, message: prefilledMessage }));
+      if (messageRef.current) {
+        messageRef.current.value = prefilledMessage;
+      }
+    }
     window.location.hash = page;
     setCurrentPage(page);
     if (page !== 'admin') loadPublicData();
@@ -371,9 +371,6 @@ export default function App() {
     }
   };
 
-  const GOLD_COLOR = '#C9A84C';
-  const NAVY_COLOR = '#0F2044';
-
   const NavBar = () => (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
@@ -385,11 +382,16 @@ export default function App() {
           {navLinks.map((link: any) => {
             if (link.hasDropdown || link.href === 'services') {
               return (
-                <div key={link.href} className="relative" ref={dropdownRef}>
+                <div
+                  key={link.href}
+                  className="relative"
+                  ref={dropdownRef}
+                  onMouseEnter={() => setServicesDropdownOpen(true)}
+                  onMouseLeave={() => setServicesDropdownOpen(false)}
+                >
                   <button
-                    onClick={() => setServicesDropdownOpen(o => !o)}
-                    onBlur={() => setTimeout(() => setServicesDropdownOpen(false), 150)}
-                    className="flex items-center gap-1 text-sm font-semibold tracking-wide text-gray-700 hover:text-custom-secondary transition-colors duration-200"
+                    onClick={() => { navigate('services'); setServicesDropdownOpen(false); }}
+                    className="flex items-center gap-1 text-sm font-semibold tracking-wide text-gray-700 hover:text-custom-secondary transition-colors duration-200 py-2"
                   >
                     {link.label}
                     <ChevronDown size={14} className={`transition-transform duration-200 ${servicesDropdownOpen ? 'rotate-180' : ''}`} />
@@ -398,7 +400,7 @@ export default function App() {
                   {/* Simple Dropdown */}
                   {servicesDropdownOpen && (
                     <div 
-                      className="absolute top-full left-0 mt-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50"
+                      className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 animate-fade-in"
                       style={{ boxShadow: '0 10px 25px rgba(15,32,68,0.08)' }}
                     >
                       {SERVICE_DROPDOWN.map(item => {
@@ -407,7 +409,7 @@ export default function App() {
                           <button
                             key={item.href}
                             onClick={() => { navigate(item.href); setServicesDropdownOpen(false); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-custom-secondary transition-colors group animate-fade-in"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-custom-secondary transition-colors group"
                           >
                             <Icon size={15} className="text-gray-400 group-hover:text-custom-secondary transition-colors" />
                             <span className="font-semibold">{item.label}</span>
@@ -453,7 +455,7 @@ export default function App() {
         <div className="lg:hidden fixed left-0 right-0 top-[89px] max-h-[calc(100dvh-89px)] overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down">
           {/* Services section expanded in mobile */}
           <div className="py-2 border-b border-gray-100">
-            <div className="text-[10px] font-extrabold tracking-widest uppercase text-gray-400 mb-3">Our Solutions</div>
+            <div className="text-[10px] font-extrabold tracking-widest uppercase text-gray-400 mb-3">Services</div>
             {SERVICE_DROPDOWN.map(item => {
               const Icon = item.icon;
               return (

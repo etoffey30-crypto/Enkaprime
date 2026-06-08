@@ -149,13 +149,13 @@ export default function ServiceDetail({ serviceKey, onNavigate }: ServiceDetailP
       const { data: dbData } = await supabase
         .from('services')
         .select('*')
-        .eq('code', serviceKey)
+        .eq('slug', serviceKey)
         .single();
 
       if (dbData) {
         setData({
           title: dbData.title,
-          tagline: dbData.tagline || dbData.full_description,
+          tagline: dbData.tagline || dbData.long_description,
           heroImage: dbData.image_url,
           components: dbData.components || [],
           painPoints: dbData.pain_points || [],
