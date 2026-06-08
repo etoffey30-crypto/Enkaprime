@@ -225,8 +225,8 @@ export default function App() {
   useEffect(() => {
     try {
       const logo = dbSettings.header_logo || dbSettings.site_logo || dbSettings.site_logo || dbSettings.hero_image || '';
-      const title = dbSettings.site_title || 'enkaprime — Landing Page Development';
-      const desc = dbSettings.site_tagline || dbSettings.hero_description || 'enkaprime.com — Landing Page Development';
+      const title = dbSettings.site_title || 'Enka Prime Consulting Ltd | Business Advisory, Records Digitalisation & Corporate Training';
+      const desc = dbSettings.site_tagline || dbSettings.hero_description || 'Enka Prime Consulting Ltd is a Ghana-based consulting firm providing business advisory, records digitalisation, asset tagging, corporate training, ISO management systems implementation, and operational excellence solutions that help organisations improve performance, strengthen compliance, and enhance operational efficiency.';
 
       const setMeta = (key: string, value: string, isProperty = false) => {
         if (!value) return;
