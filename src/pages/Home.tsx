@@ -97,10 +97,9 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   }, []);
 
   const stats = [
-    { value: '20+', label: 'SMEs Supported' },
-    { value: '15+', label: 'Professional Programmes' },
     { value: '4', label: 'Core Service Pillars' },
-    { value: '100%', label: 'Customized Solutions' },
+    { value: '2', label: 'Training Delivery Models', small: 'In-House & Public' },
+    { value: '100%', label: 'Client Success', small: 'Through Practical Solutions' },
   ];
 
   const services = (dbServices.length > 0 ? dbServices : FALLBACK_SERVICES).slice(0, 4);
@@ -229,10 +228,13 @@ export default function Home({ onNavigate, settings }: HomeProps) {
                 animation: visibleStats ? `slideInUp 0.6s ease-out ${idx * 100}ms both` : 'none'
               }}
             >
-              <div className="text-2xl md:text-4xl font-bold mb-1 group-hover:scale-110 transition-transform duration-300 text-custom-secondary">
-                {stat.value}
-              </div>
-              <div className="text-xs sm:text-sm text-blue-200 font-medium group-hover:text-white transition-colors duration-300">{stat.label}</div>
+                  <div className="text-2xl md:text-4xl font-bold mb-1 group-hover:scale-110 transition-transform duration-300 text-custom-secondary">
+                    {stat.value}
+                  </div>
+                  <div className="text-xs sm:text-sm text-blue-200 font-medium group-hover:text-white transition-colors duration-300">
+                    {stat.label}
+                    {stat.small && <div className="text-[10px] mt-1">{stat.small}</div>}
+                  </div>
             </div>
           ))}
         </div>
