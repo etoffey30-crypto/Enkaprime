@@ -215,9 +215,9 @@ export default function Services({ onNavigate }: ServicesProps) {
           </div>
           <div className="grid md:grid-cols-3 gap-5 sm:gap-8">
             {[
-              { stat: '500+', label: 'Professionals Trained', desc: 'Across multiple sectors and disciplines' },
               { stat: '4', label: 'Core Service Pillars', desc: 'Records, Assets, Compliance & Training' },
-              { stat: '100%', label: 'In-House Delivery', desc: 'All services delivered at your premises, nationwide' },
+              { stat: '2', label: 'Training Delivery Models', desc: 'In-House & Public' },
+              { stat: '100%', label: 'Client Success', desc: 'Through Practical Solutions' },
             ].map(item => (
               <div key={item.stat} className="text-center p-6 sm:p-8 rounded-xl sm:rounded-2xl border border-gray-100 hover:shadow-lg transition-all duration-300">
                 <div className="text-4xl sm:text-5xl font-black mb-2" style={{ color: GOLD }}>{item.stat}</div>
