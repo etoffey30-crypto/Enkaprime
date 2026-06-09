@@ -375,7 +375,7 @@ export default function App() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
-          <img src={dbSettings.header_logo || "/enkaprime/enkaprime-logo.png"} alt="Enka Prime Consulting Ltd" className="h-16 sm:h-20 lg:h-24 w-auto object-contain" />
+          <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-20 sm:h-24 lg:h-28 w-auto object-contain" />
         </button>
 
         <div className="hidden lg:flex items-center gap-8">
