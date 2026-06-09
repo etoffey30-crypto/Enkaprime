@@ -109,7 +109,7 @@ export default function App() {
   useEffect(() => {
     try {
       const ds = dbSettings.design_system ? JSON.parse(dbSettings.design_system) : {};
-      
+
       const primary = ds.primary_color || '#0F2044';
       const secondary = ds.secondary_color || '#C9A84C';
       const accent = ds.accent_color || '#F3F4F6';
@@ -375,7 +375,7 @@ export default function App() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
-          <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-20 sm:h-24 lg:h-28 w-auto object-contain" />
+          <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-28 sm:h-32 lg:h-40 w-auto object-contain" />
         </button>
 
         <div className="hidden lg:flex items-center gap-8">
@@ -399,7 +399,7 @@ export default function App() {
 
                   {/* Simple Dropdown */}
                   {servicesDropdownOpen && (
-                    <div 
+                    <div
                       className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 animate-fade-in"
                       style={{ boxShadow: '0 10px 25px rgba(15,32,68,0.08)' }}
                     >
@@ -663,22 +663,22 @@ export default function App() {
                           {field.label}
                         </label>
                         <input
-                              id={id}
-                              ref={field.name === 'name' ? nameRef : field.name === 'email' ? emailRef : orgRef}
-                              name={field.name}
-                              type={field.type}
-                              required
-                              autoComplete={field.autoComplete}
-                              placeholder={field.placeholder}
-                              defaultValue={formData[field.name as keyof typeof formData]}
-                              onKeyDown={e => e.stopPropagation()}
-                              onKeyUp={e => e.stopPropagation()}
-                              onInput={e => e.stopPropagation()}
-                              onMouseDown={e => e.stopPropagation()}
-                              onTouchStart={e => e.stopPropagation()}
-                              onFocus={e => e.stopPropagation()}
-                              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
-                            />
+                          id={id}
+                          ref={field.name === 'name' ? nameRef : field.name === 'email' ? emailRef : orgRef}
+                          name={field.name}
+                          type={field.type}
+                          required
+                          autoComplete={field.autoComplete}
+                          placeholder={field.placeholder}
+                          defaultValue={formData[field.name as keyof typeof formData]}
+                          onKeyDown={e => e.stopPropagation()}
+                          onKeyUp={e => e.stopPropagation()}
+                          onInput={e => e.stopPropagation()}
+                          onMouseDown={e => e.stopPropagation()}
+                          onTouchStart={e => e.stopPropagation()}
+                          onFocus={e => e.stopPropagation()}
+                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
+                        />
                       </div>
                     );
                   })}
