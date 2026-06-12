@@ -5,13 +5,13 @@ import {
   Save, Plus, Trash2, CreditCard as Edit3, Eye, EyeOff, 
   ArrowLeft, RefreshCw, CheckCircle, AlertCircle, Star, 
   Image as ImageIcon, Palette, Compass, Layout, 
-  ArrowUp, ArrowDown, FileText, Link, HelpCircle, Layers
+  ArrowUp, ArrowDown, FileText, Link, HelpCircle, Layers, GraduationCap
 } from 'lucide-react';
 
 const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
 
-type AdminTab = 'dashboard' | 'pages' | 'services' | 'programmes' | 'design_system' | 'navigation' | 'homepage_builder' | 'footer' | 'settings';
+type AdminTab = 'dashboard' | 'pages' | 'services' | 'programmes' | 'trainings' | 'blogs' | 'design_system' | 'navigation' | 'homepage_builder' | 'footer' | 'settings';
 
 interface SiteSetting { id: string; key: string; value: string; updated_at: string }
 interface Service { 
@@ -51,6 +51,8 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
   const [services, setServices] = useState<Service[]>([]);
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
+  const [trainings, setTrainings] = useState<any[]>([]);
+  const [blogs, setBlogs] = useState<any[]>([]);
 
   // Settings Mapping
   const [editingSettings, setEditingSettings] = useState<Record<string, string>>({});
@@ -60,10 +62,14 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editingProgramme, setEditingProgramme] = useState<any | null>(null);
   const [editingModule, setEditingModule] = useState<CourseModule | null>(null);
+  const [editingTraining, setEditingTraining] = useState<any | null>(null);
+  const [editingBlog, setEditingBlog] = useState<any | null>(null);
 
   const [showNewService, setShowNewService] = useState(false);
   const [showNewProgramme, setShowNewProgramme] = useState(false);
   const [showNewModule, setShowNewModule] = useState(false);
+  const [showNewTraining, setShowNewTraining] = useState(false);
+  const [showNewBlog, setShowNewBlog] = useState(false);
 
   // Content Management - Selected Page editor
   const [selectedPage, setSelectedPage] = useState<'home' | 'about' | 'contact' | 'services'>('home');
@@ -87,10 +93,12 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
 
   const loadAllData = useCallback(async () => {
     if (!session) return;
-    const [settingsRes, servicesRes, programmesRes] = await Promise.all([
+    const [settingsRes, servicesRes, programmesRes, trainingsRes, blogsRes] = await Promise.all([
       supabase.from('site_settings').select('*').order('key'),
       supabase.from('services').select('*').order('sort_order'),
       supabase.from('programmes').select('*').order('category, code'),
+      supabase.from('trainings').select('*').order('sort_order'),
+      supabase.from('blogs').select('*').order('sort_order'),
     ]);
 
     if (settingsRes.data) {
@@ -113,6 +121,8 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     }
     if (servicesRes.data) setServices(servicesRes.data);
     if (programmesRes.data) setProgrammes(programmesRes.data);
+    if (trainingsRes.data) setTrainings(trainingsRes.data);
+    if (blogsRes.data) setBlogs(blogsRes.data);
   }, [session]);
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
@@ -236,6 +246,70 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     await loadAllData();
   };
 
+  // ─── Trainings CRUD ───
+  const saveTraining = async (item: any) => {
+    const { id, ...data } = item;
+    if (id) {
+      const { error } = await supabase.from('trainings').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) { showToast(error.message, 'error'); return; }
+    } else {
+      const { error } = await supabase.from('trainings').insert(data);
+      if (error) { showToast(error.message, 'error'); return; }
+    }
+    setEditingTraining(null);
+    setShowNewTraining(false);
+    await loadAllData();
+    showToast('Training course saved');
+  };
+
+  const deleteTraining = async (id: string) => {
+    if (!confirm('Delete this training course?')) return;
+    const { error } = await supabase.from('trainings').delete().eq('id', id);
+    if (error) { showToast(error.message, 'error'); return; }
+    await loadAllData();
+    showToast('Training course deleted');
+  };
+
+  const toggleTrainingActive = async (id: string, is_active: boolean) => {
+    const { error } = await supabase.from('trainings').update({ is_active: !is_active, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast(error.message, 'error'); return; }
+    await loadAllData();
+  };
+
+  // ─── Blogs CRUD ───
+  const saveBlog = async (item: any) => {
+    const { id, ...data } = item;
+    if (!data.slug) {
+      data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+    if (id) {
+      const { error } = await supabase.from('blogs').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) { showToast(error.message, 'error'); return; }
+    } else {
+      const { error } = await supabase.from('blogs').insert(data);
+      if (error) { showToast(error.message, 'error'); return; }
+    }
+    setEditingBlog(null);
+    setShowNewBlog(false);
+    await loadAllData();
+    showToast('Blog article saved');
+  };
+
+  const deleteBlog = async (id: string) => {
+    if (!confirm('Delete this blog article?')) return;
+    const { error } = await supabase.from('blogs').delete().eq('id', id);
+    if (error) { showToast(error.message, 'error'); return; }
+    await loadAllData();
+    showToast('Blog article deleted');
+  };
+
+  const toggleBlogPublished = async (id: string, is_published: boolean) => {
+    const published_at = !is_published ? new Date().toISOString() : null;
+    const { error } = await supabase.from('blogs').update({ is_published: !is_published, published_at, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast(error.message, 'error'); return; }
+    await loadAllData();
+  };
+
   // ─── Reusable Modules CRUD ───
   const saveCourseModule = async (mod: CourseModule) => {
     let updated = [...courseModules];
@@ -345,6 +419,8 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     { key: 'pages', label: 'Pages (Content)', icon: FileText },
     { key: 'services', label: 'Services Manager', icon: Briefcase },
     { key: 'programmes', label: 'Programmes & Modules', icon: BookOpen },
+    { key: 'trainings', label: 'Training Portfolio', icon: GraduationCap },
+    { key: 'blogs', label: 'Blogs Manager', icon: FileText },
     { key: 'design_system', label: 'Design System', icon: Palette },
     { key: 'navigation', label: 'Navigation Manager', icon: Compass },
     { key: 'homepage_builder', label: 'Homepage Builder', icon: Layout },
@@ -1630,6 +1706,390 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     );
   };
 
+  // ─── Trainings Manager View ───
+  const TrainingsManagerView = () => {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Training Courses Portfolio</h2>
+            <p className="text-xs text-gray-500">Add, edit, or delete core corporate training courses shown as cards.</p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingTraining({
+                title: '',
+                category: 'General',
+                duration: '2 Days',
+                short_summary: '',
+                synopsis: '',
+                image_url: '',
+                sort_order: trainings.length,
+                is_active: true
+              });
+              setShowNewTraining(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all"
+            style={{ backgroundColor: NAVY }}
+          >
+            <Plus size={14} /> Add Training Course
+          </button>
+        </div>
+
+        {(editingTraining || showNewTraining) && (
+          <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-4 text-left">
+            <h3 className="font-bold text-sm text-slate-800 mb-4">
+              {editingTraining.id ? 'Edit Training Course Details' : 'Add New Training Course'}
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Course Title</label>
+                <input 
+                  type="text" 
+                  value={editingTraining.title || ''} 
+                  onChange={e => setEditingTraining({ ...editingTraining, title: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm" 
+                  placeholder="e.g. Advanced Leadership & Change Management"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
+                  <select 
+                    value={editingTraining.category || 'General'} 
+                    onChange={e => setEditingTraining({ ...editingTraining, category: e.target.value })} 
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                  >
+                    {['Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'].map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Duration</label>
+                  <input 
+                    type="text" 
+                    value={editingTraining.duration || '2 Days'} 
+                    onChange={e => setEditingTraining({ ...editingTraining, duration: e.target.value })} 
+                    className="w-full px-3 py-2 rounded-lg border text-sm" 
+                    placeholder="e.g. 3 Days"
+                  />
+                </div>
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Short Preview Summary (Shown on Card)</label>
+                <input 
+                  type="text" 
+                  value={editingTraining.short_summary || ''} 
+                  onChange={e => setEditingTraining({ ...editingTraining, short_summary: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm" 
+                  placeholder="Provide a 1-sentence teaser for the card layout..."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Full Synopsis & Detailed Outline</label>
+                <textarea 
+                  rows={6} 
+                  value={editingTraining.synopsis || ''} 
+                  onChange={e => setEditingTraining({ ...editingTraining, synopsis: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm font-sans" 
+                  placeholder="Write the full synopsis, details of who this is for, and course outline..."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <ImageUploadField 
+                  label="Course Cover Image" 
+                  value={editingTraining.image_url || ''} 
+                  onChange={val => setEditingTraining({ ...editingTraining, image_url: val })} 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 md:col-span-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Sort Order</label>
+                  <input 
+                    type="number" 
+                    value={editingTraining.sort_order ?? 0} 
+                    onChange={e => setEditingTraining({ ...editingTraining, sort_order: parseInt(e.target.value) })} 
+                    className="w-full px-3 py-2 rounded-lg border text-sm" 
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <input 
+                    type="checkbox" 
+                    id="training-active"
+                    checked={editingTraining.is_active ?? true} 
+                    onChange={e => setEditingTraining({ ...editingTraining, is_active: e.target.checked })} 
+                    className="rounded"
+                  />
+                  <label htmlFor="training-active" className="text-xs font-semibold text-gray-600">Active / Visible on site</label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button 
+                onClick={() => { setEditingTraining(null); setShowNewTraining(false); }} 
+                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => saveTraining(editingTraining)} 
+                className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" 
+                style={{ backgroundColor: NAVY }}
+              >
+                Save Course
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-2 gap-4 text-left">
+          {trainings.length === 0 ? (
+            <div className="col-span-2 p-8 text-center text-gray-400 bg-white border border-dashed border-gray-250 rounded-xl">
+              No course portfolio items created yet. Click "Add Training Course" above.
+            </div>
+          ) : (
+            trainings.map(item => (
+              <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-150 flex gap-4 hover:shadow-md transition-shadow">
+                <div className="w-24 h-16 rounded overflow-hidden bg-slate-100 flex-shrink-0 border border-gray-100 animate-fade-in">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400"><GraduationCap size={20} /></div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">{item.category}</span>
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800" style={{ color: '#8a6b1e', background: `${GOLD}22` }}>{item.duration}</span>
+                    {!item.is_active && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">Inactive</span>}
+                  </div>
+                  <h4 className="font-bold text-slate-800 text-sm truncate">{item.title}</h4>
+                  <p className="text-gray-400 text-xs truncate mt-0.5">{item.short_summary || item.synopsis}</p>
+                </div>
+                <div className="flex flex-col justify-between items-end">
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => setEditingTraining(item)} 
+                      className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
+                      title="Edit Course"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button 
+                      onClick={() => deleteTraining(item.id)} 
+                      className="p-1.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                      title="Delete Course"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => toggleTrainingActive(item.id, item.is_active)}
+                    className="text-[10px] font-bold text-slate-500 hover:text-yellow-600 underline"
+                  >
+                    {item.is_active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Blogs Manager View ───
+  const BlogsManagerView = () => {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Blogs & Insights Manager</h2>
+            <p className="text-xs text-gray-500">Create, edit, or delete articles and ebooks displayed in the website Blogs section.</p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingBlog({
+                title: '',
+                excerpt: '',
+                content: '',
+                featured_image_url: '',
+                slug: '',
+                is_published: false,
+                sort_order: blogs.length
+              });
+              setShowNewBlog(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all"
+            style={{ backgroundColor: NAVY }}
+          >
+            <Plus size={14} /> Create Blog Post
+          </button>
+        </div>
+
+        {(editingBlog || showNewBlog) && (
+          <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-4 text-left">
+            <h3 className="font-bold text-sm text-slate-800 mb-4">
+              {editingBlog.id ? 'Edit Blog Article Details' : 'Create New Blog Article'}
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Article Title</label>
+                <input 
+                  type="text" 
+                  value={editingBlog.title || ''} 
+                  onChange={e => {
+                    const title = e.target.value;
+                    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    setEditingBlog({ ...editingBlog, title, slug });
+                  }} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm" 
+                  placeholder="e.g. Digitalisation Best Practices for Corporate Governance"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">URL Slug (Auto-generated)</label>
+                <input 
+                  type="text" 
+                  value={editingBlog.slug || ''} 
+                  onChange={e => setEditingBlog({ ...editingBlog, slug: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm" 
+                  placeholder="e.g. digitalisation-best-practices"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Sort Order</label>
+                <input 
+                  type="number" 
+                  value={editingBlog.sort_order ?? 0} 
+                  onChange={e => setEditingBlog({ ...editingBlog, sort_order: parseInt(e.target.value) })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm" 
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Excerpt Preview (Shown on card feed)</label>
+                <textarea 
+                  rows={2} 
+                  value={editingBlog.excerpt || ''} 
+                  onChange={e => setEditingBlog({ ...editingBlog, excerpt: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm" 
+                  placeholder="A short teaser summary of the article..."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Article Content (Markdown or Plain Text)</label>
+                <textarea 
+                  rows={10} 
+                  value={editingBlog.content || ''} 
+                  onChange={e => setEditingBlog({ ...editingBlog, content: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border text-sm font-mono" 
+                  placeholder="Write full article body. Separate paragraphs with empty lines. Use ### for subheadings."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <ImageUploadField 
+                  label="Featured Image" 
+                  value={editingBlog.featured_image_url || ''} 
+                  onChange={val => setEditingBlog({ ...editingBlog, featured_image_url: val })} 
+                />
+              </div>
+
+              <div className="md:col-span-2 flex items-center gap-2 pt-2">
+                <input 
+                  type="checkbox" 
+                  id="blog-published"
+                  checked={editingBlog.is_published ?? false} 
+                  onChange={e => setEditingBlog({ ...editingBlog, is_published: e.target.checked })} 
+                  className="rounded"
+                />
+                <label htmlFor="blog-published" className="text-xs font-semibold text-gray-600">Publish Article (Visible immediately to public)</label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button 
+                onClick={() => { setEditingBlog(null); setShowNewBlog(false); }} 
+                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => saveBlog(editingBlog)} 
+                className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" 
+                style={{ backgroundColor: NAVY }}
+              >
+                Save Article
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3 text-left animate-fade-in">
+          {blogs.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 bg-white border border-dashed border-gray-250 rounded-xl">
+              No blog articles created yet. Click "Create Blog Post" above.
+            </div>
+          ) : (
+            blogs.map(item => (
+              <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-150 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div className="w-20 h-14 rounded overflow-hidden bg-slate-100 flex-shrink-0 border border-gray-100">
+                  {item.featured_image_url ? (
+                    <img src={item.featured_image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400"><FileText size={18} /></div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-slate-800 text-sm truncate">{item.title}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] text-gray-400">Slug: /{item.slug}</span>
+                    <span className="text-[10px] text-gray-300">•</span>
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${item.is_published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {item.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button 
+                    onClick={() => setEditingBlog(item)} 
+                    className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
+                    title="Edit Blog"
+                  >
+                    <Edit3 size={14} />
+                  </button>
+                  <button 
+                    onClick={() => deleteBlog(item.id)} 
+                    className="p-1.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                    title="Delete Blog"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <button 
+                    onClick={() => toggleBlogPublished(item.id, item.is_published)} 
+                    className="px-2.5 py-1 text-[10px] font-bold border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors ml-2"
+                  >
+                    {item.is_published ? 'Set Draft' : 'Publish'}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // 8. GENERAL SETTINGS TAB (Central Key-Value Fallback)
   const GeneralSettingsView = () => {
     const handleFieldChange = (key: string, val: string) => {
@@ -1652,7 +2112,56 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between mb-4">
+        {/* Announcement Bar Settings Section */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 text-left">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Top Announcement Bar</h3>
+              <p className="text-xs text-gray-500">Toggle whether a message ribbon appears at the very top of all pages.</p>
+            </div>
+            <button
+              onClick={() => handleFieldChange('announcement_bar_enabled', editingSettings.announcement_bar_enabled === 'true' ? 'false' : 'true')}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${editingSettings.announcement_bar_enabled === 'true' ? 'bg-[#C9A84C]' : 'bg-gray-200'}`}
+              style={editingSettings.announcement_bar_enabled === 'true' ? { backgroundColor: GOLD } : {}}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${editingSettings.announcement_bar_enabled === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Announcement Text</label>
+              <input 
+                type="text" 
+                value={editingSettings.announcement_bar_text || ''} 
+                onChange={e => handleFieldChange('announcement_bar_text', e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border text-sm" 
+                placeholder="e.g. Click to download our corporate brochure..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Announcement Action Link (URL or #hash)</label>
+              <input 
+                type="text" 
+                value={editingSettings.announcement_bar_link || ''} 
+                onChange={e => handleFieldChange('announcement_bar_link', e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border text-sm" 
+                placeholder="e.g. #contact or https://..."
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={handleSaveAllGeneral}
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#0F2044] text-white font-bold text-xs rounded-xl hover:scale-105 transition-all shadow-md"
+              style={{ backgroundColor: NAVY }}
+            >
+              <Save size={12} /> Save Announcement Settings
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-2">
           <div>
             <h2 className="text-xl font-bold text-slate-800">General Key-Value Store</h2>
             <p className="text-xs text-gray-500">Edit raw site configuration fallback strings directly.</p>
@@ -1666,8 +2175,8 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 max-h-[500px] overflow-y-auto">
-          {Object.keys(editingSettings).filter(k => !['design_system', 'navigation_menu', 'homepage_modules', 'footer_config', 'course_modules'].includes(k)).map(key => (
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 max-h-[400px] overflow-y-auto">
+          {Object.keys(editingSettings).filter(k => !['design_system', 'navigation_menu', 'homepage_modules', 'footer_config', 'course_modules', 'announcement_bar_enabled', 'announcement_bar_text', 'announcement_bar_link'].includes(k)).map(key => (
             <div key={key} className="text-left">
               <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">{key.replace(/_/g, ' ')}</label>
               {key.includes('image') || key.includes('logo') ? (
@@ -1746,6 +2255,8 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
           {activeTab === 'pages' && <PagesView />}
           {activeTab === 'services' && <ServicesManagerView />}
           {activeTab === 'programmes' && <ProgrammesView />}
+          {activeTab === 'trainings' && <TrainingsManagerView />}
+          {activeTab === 'blogs' && <BlogsManagerView />}
           {activeTab === 'design_system' && <DesignSystemView />}
           {activeTab === 'navigation' && <NavigationManagerView />}
           {activeTab === 'homepage_builder' && <HomepageBuilderView />}

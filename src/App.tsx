@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Menu, X, Phone, Mail, MapPin,
   CheckCircle, ChevronDown, Database, Tag, ShieldCheck, GraduationCap,
-  Facebook, Linkedin, MessageCircle
+  Facebook, Linkedin, MessageCircle, ArrowRight
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
@@ -11,12 +11,14 @@ import ServiceDetail from './pages/ServiceDetail';
 import Training from './pages/Training';
 import About from './pages/About';
 import Admin from './pages/Admin';
+import Blogs from './pages/Blogs';
 
 const NAV_LINKS = [
   { label: 'Home', href: 'home' },
   { label: 'About Us', href: 'about' },
   { label: 'Services', href: 'services', hasDropdown: true },
   { label: 'Upcoming Training', href: 'upcoming-training' },
+  { label: 'Blogs', href: 'blogs' },
   { label: 'Contact Us', href: 'contact' },
 ];
 
@@ -45,6 +47,14 @@ export default function App() {
   const [submitted, setSubmitted] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
+
+  const showAnnouncement = dbSettings.announcement_bar_enabled === 'true' && !announcementDismissed;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--announcement-height', showAnnouncement ? '40px' : '0px');
+  }, [showAnnouncement]);
 
   // Listen for hash changes (back/forward browser buttons)
   useEffect(() => {
@@ -360,6 +370,8 @@ export default function App() {
         return <ServiceDetail serviceKey="iso" onNavigate={navigate} />;
       case 'training':
         return <Training onNavigate={navigate} />;
+      case 'blogs':
+        return <Blogs onNavigate={navigate} />;
       case 'about':
         return <About onNavigate={navigate} settings={dbSettings} />;
       case 'programmes':
@@ -372,7 +384,10 @@ export default function App() {
   };
 
   const NavBar = () => (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm">
+    <nav 
+      className="fixed left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm"
+      style={{ top: showAnnouncement ? '40px' : '0px' }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
           <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-28 sm:h-32 lg:h-40 w-auto object-contain" />
@@ -452,7 +467,13 @@ export default function App() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="lg:hidden fixed left-0 right-0 top-[89px] max-h-[calc(100dvh-89px)] overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down">
+        <div 
+          className="lg:hidden fixed left-0 right-0 overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down"
+          style={{ 
+            top: showAnnouncement ? '129px' : '89px',
+            maxHeight: showAnnouncement ? 'calc(100dvh - 129px)' : 'calc(100dvh - 89px)'
+          }}
+        >
           {/* Services section expanded in mobile */}
           <div className="py-2 border-b border-gray-100">
             <div className="text-[10px] font-extrabold tracking-widest uppercase text-gray-400 mb-3">Services</div>
@@ -720,11 +741,51 @@ export default function App() {
     </div>
   );
 
+  // Announcement bar component
+  const AnnouncementBar = () => {
+    if (!showAnnouncement) return null;
+    return (
+      <div 
+        className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in"
+      >
+        <div className="flex-1 flex justify-center">
+          {dbSettings.announcement_bar_link ? (
+            <a 
+              href={dbSettings.announcement_bar_link} 
+              className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5"
+            >
+              <span>{dbSettings.announcement_bar_text || 'Click here to learn more'}</span>
+              <ArrowRight size={14} className="animate-pulse" />
+            </a>
+          ) : (
+            <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">
+              {dbSettings.announcement_bar_text}
+            </span>
+          )}
+        </div>
+        <button 
+          onClick={() => setAnnouncementDismissed(true)}
+          className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0"
+          aria-label="Dismiss announcement"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-white font-sans">
+      <AnnouncementBar />
       <NavBar />
       <SocialRail />
-      {renderPage()}
+      <div 
+        style={{ paddingTop: showAnnouncement ? '40px' : '0px' }} 
+        className="transition-all duration-300 flex flex-col min-h-screen"
+      >
+        <div className="flex-1">
+          {renderPage()}
+        </div>
 
       {/* Footer */}
       <footer className="bg-custom-primary pt-14 pb-8 border-t border-white/10 font-custom text-white">
@@ -793,6 +854,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }
