@@ -72,16 +72,21 @@ export default function Training({ onNavigate }: TrainingProps) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [progRes, trainRes] = await Promise.all([
-        supabase.from('programmes').select('*').eq('is_active', true).order('category, code'),
-        supabase.from('trainings').select('*').eq('is_active', true).order('sort_order')
-      ]);
-      if (progRes.data) setProgrammes(progRes.data);
-      if (trainRes.data && trainRes.data.length > 0) {
-        setTrainings(trainRes.data);
+      const localTrainings = localStorage.getItem('local_trainings');
+      if (localTrainings) {
+        const parsed = JSON.parse(localTrainings);
+        setTrainings(parsed.filter((t: any) => t.is_active));
       } else {
-        setTrainings(FALLBACK_TRAININGS);
+        const trainRes = await supabase.from('trainings').select('*').eq('is_active', true).order('sort_order');
+        if (trainRes.data && trainRes.data.length > 0) {
+          setTrainings(trainRes.data);
+        } else {
+          setTrainings(FALLBACK_TRAININGS);
+        }
       }
+
+      const progRes = await supabase.from('programmes').select('*').eq('is_active', true).order('category, code');
+      if (progRes.data) setProgrammes(progRes.data);
     } catch (e) {
       console.error('Failed to load training data, using fallbacks:', e);
       setTrainings(FALLBACK_TRAININGS);

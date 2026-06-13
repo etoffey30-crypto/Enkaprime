@@ -10,7 +10,7 @@ import Services from './pages/Services';
 import ServiceDetail from './pages/ServiceDetail';
 import Training from './pages/Training';
 import About from './pages/About';
-import Admin from './pages/Admin';
+import Admin from './pages/AdminCMS';
 import Blogs from './pages/Blogs';
 
 const NAV_LINKS = [
@@ -49,13 +49,6 @@ export default function App() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [announcementDismissed, setAnnouncementDismissed] = useState(false);
 
-  const showAnnouncement = dbSettings.announcement_bar_enabled === 'true' && !announcementDismissed;
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--announcement-height', showAnnouncement ? '40px' : '0px');
-  }, [showAnnouncement]);
-
   // Listen for hash changes (back/forward browser buttons)
   useEffect(() => {
     const onHashChange = () => setCurrentPage(getPageFromHash());
@@ -66,17 +59,34 @@ export default function App() {
   // Database-driven data
   const [dbSettings, setDbSettings] = useState<Record<string, string>>({});
   const [dbProgrammes, setDbProgrammes] = useState<any[]>([]);
+  const showAnnouncement = dbSettings.announcement_bar_enabled === 'true' && !announcementDismissed;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--announcement-height', showAnnouncement ? '40px' : '0px');
+  }, [showAnnouncement]);
 
   const loadPublicData = useCallback(async () => {
+    const localSettings = localStorage.getItem('local_settings');
+    const localMap: Record<string, string> = {};
+    if (localSettings) {
+      const parsed = JSON.parse(localSettings);
+      parsed.forEach((s: any) => { localMap[s.key] = s.value; });
+    }
+
     const [settingsRes, programmesRes] = await Promise.all([
       supabase.from('site_settings').select('key, value'),
       supabase.from('programmes').select('*').eq('is_active', true).order('category, code'),
     ]);
+
+    const map: Record<string, string> = {};
     if (settingsRes.data) {
-      const map: Record<string, string> = {};
       settingsRes.data.forEach((s: any) => { map[s.key] = s.value; });
-      setDbSettings(map);
     }
+
+    // Merge: local storage overrides database settings if present
+    setDbSettings({ ...map, ...localMap });
+
     if (programmesRes.data) setDbProgrammes(programmesRes.data);
   }, []);
 
@@ -743,6 +753,35 @@ export default function App() {
 
   // Announcement bar component
   const AnnouncementBar = () => {
+    // Prefer a download_banner stored as JSON in site_settings.download_banner
+    try {
+      const raw = dbSettings.download_banner;
+      if (raw) {
+        const banner = JSON.parse(raw);
+        if (banner && banner.is_active) {
+          return (
+            <div className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in">
+              <div className="flex-1 flex justify-center">
+                {banner.cta_link ? (
+                  <a href={banner.cta_link} className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5">
+                    <span>{banner.text || 'Click to download'}</span>
+                    <ArrowRight size={14} className="animate-pulse" />
+                  </a>
+                ) : (
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">{banner.text || 'Click to download'}</span>
+                )}
+              </div>
+              <button onClick={() => setAnnouncementDismissed(true)} className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0" aria-label="Dismiss announcement">
+                <X size={16} />
+              </button>
+            </div>
+          );
+        }
+      }
+    } catch (e) {
+      // ignore parse errors and fallback to legacy announcement
+    }
+
     if (!showAnnouncement) return null;
     return (
       <div 
