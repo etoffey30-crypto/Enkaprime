@@ -403,6 +403,54 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     const [editForm, setEditForm] = useState<any>(null);
     const [selectingImageFor, setSelectingImageFor] = useState<string | null>(null);
 
+    const convertImageFileToDataUrl = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+          reject(new Error('Please choose an image file.'));
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read the selected image.'));
+        reader.onload = () => {
+          const rawResult = reader.result as string;
+          const img = new Image();
+          img.onerror = () => resolve(rawResult);
+          img.onload = () => {
+            const maxWidth = 1600;
+            const scale = Math.min(1, maxWidth / img.width);
+            const width = Math.round(img.width * scale);
+            const height = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(rawResult);
+              return;
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+          };
+          img.src = rawResult;
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+
+    const handleTrainingImageUpload = async (file: File | undefined) => {
+      if (!file) return;
+      try {
+        const imageUrl = await convertImageFileToDataUrl(file);
+        setEditForm((prev: any) => ({ ...prev, image_url: imageUrl }));
+        showToast('Image uploaded. Click Save to keep this training.');
+      } catch (e: any) {
+        showToast(e.message || 'Image upload failed', 'error');
+      }
+    };
+
     useEffect(() => {
       if (isMockMode) {
         const local = localStorage.getItem('local_trainings');
@@ -475,7 +523,22 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
               <input placeholder="Category" value={editForm.category || ''} onChange={e => setEditForm({ ...editForm, category: e.target.value })} className="px-4 py-2 rounded-lg border" />
               <input placeholder="Duration" value={editForm.duration || ''} onChange={e => setEditForm({ ...editForm, duration: e.target.value })} className="px-4 py-2 rounded-lg border" />
               <input placeholder="Image URL" value={editForm.image_url || ''} onChange={e => setEditForm({ ...editForm, image_url: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <button onClick={() => setSelectingImageFor('training')} className="px-4 py-2 rounded-lg bg-gray-100">Choose from Media Library</button>
+              <button type="button" onClick={() => setSelectingImageFor('training')} className="px-4 py-2 rounded-lg bg-gray-100">Choose from Media Library</button>
+              <label className="col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-yellow-300 bg-white/70 px-4 py-3 text-sm">
+                <span className="font-semibold" style={{ color: NAVY }}>Upload image from computer</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => handleTrainingImageUpload(e.target.files?.[0])}
+                  className="text-sm"
+                />
+              </label>
+              {editForm.image_url && (
+                <div className="col-span-2 rounded-xl border border-yellow-200 bg-white p-3">
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">Image Preview</div>
+                  <img src={editForm.image_url} alt="Training preview" className="max-h-72 w-full rounded-lg object-contain bg-gray-50" />
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setEditForm(null)} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800">Cancel</button>
@@ -487,7 +550,20 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
         <div className="grid md:grid-cols-2 gap-4">
           {list.map(item => (
             <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 flex gap-3">
-              {item.image_url && <img src={item.image_url} alt={item.title} className="w-28 h-20 object-cover rounded" />}
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.title}
+                  className="w-28 h-20 object-cover rounded bg-gray-100"
+                  onError={e => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-28 h-20 rounded bg-gray-100 flex items-center justify-center text-gray-300">
+                  <ImageIcon size={24} />
+                </div>
+              )}
               <div className="flex-1">
                 <div className="font-bold" style={{ color: NAVY }}>{item.title}</div>
                 <p className="text-xs text-gray-500">{item.short_summary}</p>
