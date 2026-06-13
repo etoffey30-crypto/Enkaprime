@@ -400,7 +400,7 @@ export default function App() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
-          <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-28 sm:h-32 lg:h-40 w-auto object-contain" />
+          <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-12 sm:h-14 lg:h-16 w-auto object-contain" />
         </button>
 
         <div className="hidden lg:flex items-center gap-8">
@@ -480,8 +480,8 @@ export default function App() {
         <div 
           className="lg:hidden fixed left-0 right-0 overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down"
           style={{ 
-            top: showAnnouncement ? '129px' : '89px',
-            maxHeight: showAnnouncement ? 'calc(100dvh - 129px)' : 'calc(100dvh - 89px)'
+            top: showAnnouncement ? '105px' : '65px',
+            maxHeight: showAnnouncement ? 'calc(100dvh - 105px)' : 'calc(100dvh - 65px)'
           }}
         >
           {/* Services section expanded in mobile */}
