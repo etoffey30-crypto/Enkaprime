@@ -74,6 +74,42 @@ Investing in records digitalisation is not a cost — it is a foundational strat
   }
 ];
 
+const DEFAULT_MEDIA = [
+  { id: 'default-logo', name: 'Header Logo', image_url: '/biglogo.png', alt_text: 'Enka Prime logo', category: 'Brand', is_active: true },
+  { id: 'default-footer-logo', name: 'Footer Logo', image_url: '/white-enka-prime-logo.png', alt_text: 'Enka Prime white logo', category: 'Brand', is_active: true },
+  { id: 'default-hero', name: 'Homepage Hero', image_url: 'https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg', alt_text: 'Professional team', category: 'Hero', is_active: true },
+  { id: 'default-training', name: 'Training Programmes', image_url: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg', alt_text: 'Corporate training', category: 'Training', is_active: true },
+  { id: 'default-records', name: 'Records Digitalisation', image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg', alt_text: 'Records digitalisation', category: 'Services', is_active: true },
+  { id: 'default-assets', name: 'Asset Tagging', image_url: 'https://images.pexels.com/photos/6169668/pexels-photo-6169668.jpeg', alt_text: 'Asset tagging', category: 'Services', is_active: true },
+  { id: 'default-iso', name: 'ISO Implementation', image_url: 'https://images.pexels.com/photos/5716001/pexels-photo-5716001.jpeg', alt_text: 'ISO implementation', category: 'Services', is_active: true },
+  ...FALLBACK_TRAININGS.map(item => ({
+    id: `training-${item.id}`,
+    name: item.title,
+    image_url: item.image_url,
+    alt_text: item.title,
+    category: 'Training',
+    is_active: true,
+  })),
+  ...FALLBACK_BLOGS.map(item => ({
+    id: `blog-${item.id}`,
+    name: item.title,
+    image_url: item.featured_image_url,
+    alt_text: item.title,
+    category: 'Blogs',
+    is_active: true,
+  })),
+];
+
+const mergeMedia = (items: any[]) => {
+  const seen = new Set<string>();
+  return [...items, ...DEFAULT_MEDIA].filter(item => {
+    const key = item.image_url || item.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 
 interface AdminProps {
   onNavigate: (page: string) => void;
@@ -120,6 +156,79 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const convertImageFileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) {
+        reject(new Error('Please choose an image file.'));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Could not read the selected image.'));
+      reader.onload = () => {
+        const rawResult = reader.result as string;
+        const img = new Image();
+        img.onerror = () => resolve(rawResult);
+        img.onload = () => {
+          const maxWidth = 1600;
+          const scale = Math.min(1, maxWidth / img.width);
+          const width = Math.round(img.width * scale);
+          const height = Math.round(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(rawResult);
+            return;
+          }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        img.src = rawResult;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const createMediaFromFile = async (file: File, category = 'General') => {
+    const imageUrl = await convertImageFileToDataUrl(file);
+    return {
+      name: file.name.replace(/\.[^.]+$/, ''),
+      description: '',
+      image_url: imageUrl,
+      alt_text: file.name.replace(/\.[^.]+$/, ''),
+      category,
+      is_featured: false,
+      is_active: true,
+    };
+  };
+
+  const saveMediaItem = async (item: any) => {
+    if (isMockMode) {
+      const local = localStorage.getItem('local_media');
+      let mediaList = local ? JSON.parse(local) : DEFAULT_MEDIA;
+      if (item.id && !String(item.id).startsWith('default-') && !String(item.id).startsWith('training-') && !String(item.id).startsWith('blog-')) {
+        mediaList = mediaList.map((m: any) => m.id === item.id ? { ...m, ...item, updated_at: new Date().toISOString() } : m);
+      } else {
+        mediaList = [...mediaList, { ...item, id: 'media-' + Math.random().toString(36).slice(2, 9), created_at: new Date().toISOString() }];
+      }
+      localStorage.setItem('local_media', JSON.stringify(mediaList));
+      setMedia(mergeMedia(mediaList));
+      return;
+    }
+
+    if (item.id && !String(item.id).startsWith('default-') && !String(item.id).startsWith('training-') && !String(item.id).startsWith('blog-')) {
+      await supabase.from('media_library').update({ ...item, updated_at: new Date().toISOString() }).eq('id', item.id);
+    } else {
+      const { id, ...insertItem } = item;
+      await supabase.from('media_library').insert(insertItem);
+    }
+    await loadAllData();
   };
 
   useEffect(() => {
@@ -195,9 +304,13 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
         localStorage.setItem('local_settings', JSON.stringify(settingsList));
       }
       setSiteSettings(settingsList);
+
+      const localMedia = localStorage.getItem('local_media');
+      const mediaList = localMedia ? JSON.parse(localMedia) : DEFAULT_MEDIA;
+      if (!localMedia) localStorage.setItem('local_media', JSON.stringify(DEFAULT_MEDIA));
       
       setHeroes([]);
-      setMedia([]);
+      setMedia(mergeMedia(mediaList));
       setContentBlocks([]);
       setTeam([]);
       return;
@@ -216,7 +329,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     ]);
 
     if (heroRes.data) setHeroes(heroRes.data);
-    if (mediaRes.data) setMedia(mediaRes.data);
+    setMedia(mergeMedia(mediaRes.data || []));
     if (blocksRes.data) setContentBlocks(blocksRes.data);
     if (teamRes.data) setTeam(teamRes.data);
     if (trainingsRes.data) setTrainings(trainingsRes.data);
@@ -604,6 +717,17 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     const [editForm, setEditForm] = useState<any>(null);
     const [selectingImageFor, setSelectingImageFor] = useState<boolean>(false);
 
+    const handleBlogImageUpload = async (file: File | undefined) => {
+      if (!file) return;
+      try {
+        const imageUrl = await convertImageFileToDataUrl(file);
+        setEditForm((prev: any) => ({ ...prev, featured_image_url: imageUrl }));
+        showToast('Image uploaded. Click Save to keep this article.');
+      } catch (e: any) {
+        showToast(e.message || 'Image upload failed', 'error');
+      }
+    };
+
     useEffect(() => {
       if (isMockMode) {
         const local = localStorage.getItem('local_blogs');
@@ -675,7 +799,22 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
               <textarea placeholder="Content (Markdown)" rows={6} value={editForm.content || ''} onChange={e => setEditForm({ ...editForm, content: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
               <input placeholder="Slug" value={editForm.slug || ''} onChange={e => setEditForm({ ...editForm, slug: e.target.value })} className="px-4 py-2 rounded-lg border" />
               <input placeholder="Image URL" value={editForm.featured_image_url || ''} onChange={e => setEditForm({ ...editForm, featured_image_url: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <button onClick={() => setSelectingImageFor(true)} className="px-4 py-2 rounded-lg bg-gray-100">Choose from Media Library</button>
+              <button type="button" onClick={() => setSelectingImageFor(true)} className="px-4 py-2 rounded-lg bg-gray-100">Choose from Media Library</button>
+              <label className="col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-yellow-300 bg-white/70 px-4 py-3 text-sm">
+                <span className="font-semibold" style={{ color: NAVY }}>Upload article image from computer</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => handleBlogImageUpload(e.target.files?.[0])}
+                  className="text-sm"
+                />
+              </label>
+              {editForm.featured_image_url && (
+                <div className="col-span-2 rounded-xl border border-yellow-200 bg-white p-3">
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">Image Preview</div>
+                  <img src={editForm.featured_image_url} alt="Article preview" className="max-h-72 w-full rounded-lg object-contain bg-gray-50" />
+                </div>
+              )}
               <label className="col-span-2 inline-flex items-center gap-2"><input type="checkbox" checked={!!editForm.is_published} onChange={e => setEditForm({ ...editForm, is_published: e.target.checked })} /> Publish</label>
             </div>
             <div className="flex justify-end gap-2 mt-4">
@@ -726,8 +865,15 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
   // Site Settings Editor (download banner)
   const SiteSettingsEditor = () => {
     const [banner, setBanner] = useState<any>({ key: 'download_banner', text: 'Click to download our eBook', cta_text: 'Download', cta_link: '#', is_active: true });
+    const [settingsDraft, setSettingsDraft] = useState<Record<string, string>>({});
 
     useEffect(() => {
+      const map: Record<string, string> = {};
+      siteSettings.forEach((s: any) => {
+        map[s.key] = typeof s.value === 'string' ? s.value : JSON.stringify(s.value);
+      });
+      setSettingsDraft(map);
+
       const b = siteSettings.find((s: any) => s.key === 'download_banner');
       if (b) {
         try {
@@ -742,30 +888,122 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
       }
     }, [siteSettings]);
 
-    const save = async () => {
+    const saveSettings = async (items: { key: string; value: string }[]) => {
       if (isMockMode) {
-        const payload = { key: 'download_banner', value: JSON.stringify(banner) };
-        const updatedSettings = siteSettings.filter((s: any) => s.key !== 'download_banner');
-        updatedSettings.push(payload);
+        const updatedSettings = [...siteSettings];
+        items.forEach(item => {
+          const index = updatedSettings.findIndex((s: any) => s.key === item.key);
+          if (index >= 0) updatedSettings[index] = { ...updatedSettings[index], value: item.value };
+          else updatedSettings.push(item);
+        });
         localStorage.setItem('local_settings', JSON.stringify(updatedSettings));
         setSiteSettings(updatedSettings);
       } else {
-        const existing = siteSettings.find((s: any) => s.key === 'download_banner');
-        const payload = { key: 'download_banner', value: JSON.stringify(banner) };
-        if (existing) {
-          await supabase.from('site_settings').update({ value: payload.value }).eq('id', existing.id);
-        } else {
-          await supabase.from('site_settings').insert(payload);
+        for (const item of items) {
+          const existing = siteSettings.find((s: any) => s.key === item.key);
+          if (existing) await supabase.from('site_settings').update({ value: item.value }).eq('id', existing.id);
+          else await supabase.from('site_settings').insert(item);
         }
         await loadAllData();
       }
+    };
+
+    const saveBanner = async () => {
+      await saveSettings([{ key: 'download_banner', value: JSON.stringify(banner) }]);
       showToast('Site settings saved');
     };
 
+    const updateDraft = (key: string, value: string) => {
+      setSettingsDraft(prev => ({ ...prev, [key]: value }));
+    };
+
+    const saveWebsiteContent = async () => {
+      await saveSettings(Object.entries(settingsDraft).map(([key, value]) => ({ key, value })));
+      showToast('Website content saved');
+    };
+
+    const fields = [
+      {
+        title: 'Brand, Contact & Social Media',
+        items: [
+          ['header_logo', 'Header logo URL'],
+          ['footer_logo', 'Footer logo URL'],
+          ['site_title', 'Browser / Google title'],
+          ['site_tagline', 'Website description'],
+          ['contact_email', 'Contact email'],
+          ['contact_phone', 'Contact phone'],
+          ['contact_location', 'Location text'],
+          ['facebook_url', 'Facebook link'],
+          ['linkedin_url', 'LinkedIn link'],
+          ['whatsapp_url', 'WhatsApp link'],
+        ],
+      },
+      {
+        title: 'Home Page Hero',
+        items: [
+          ['hero_badge_text', 'Small gold badge text'],
+          ['hero_title', 'Main hero headline'],
+          ['hero_rotator_words', 'Rotating words, separated by commas'],
+          ['hero_description', 'Hero paragraph'],
+          ['hero_image', 'Hero background image URL'],
+        ],
+      },
+      {
+        title: 'Home Page Sections',
+        items: [
+          ['cta_title', 'CTA title'],
+          ['cta_discipline_highlight', 'CTA highlighted words'],
+          ['cta_description', 'CTA description'],
+          ['cta_image', 'CTA background image URL'],
+          ['about_title', 'Who We Are title'],
+          ['about_description', 'Who We Are first paragraph'],
+          ['about_extended', 'Who We Are second paragraph'],
+          ['about_bullets', 'Who We Are bullets, separated by commas'],
+          ['about_pull_quote', 'Who We Are quote'],
+          ['about_image', 'Who We Are main image URL'],
+          ['team_image', 'Team / secondary image URL'],
+        ],
+      },
+    ];
 
     return (
-      <div>
-        <h2 className="text-2xl font-bold mb-4" style={{ color: NAVY }}>Site Settings</h2>
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold" style={{ color: NAVY }}>Site Settings</h2>
+        <div className="bg-white p-6 rounded-xl border">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+            <div>
+              <h3 className="font-bold" style={{ color: NAVY }}>Website Text, Pictures & Links</h3>
+              <p className="text-xs text-gray-500 mt-1">Edit the main content that appears across the public website. For pictures, use an image URL from Media Library.</p>
+            </div>
+            <button onClick={saveWebsiteContent} className="px-4 py-2 rounded-lg text-white font-bold text-sm" style={{ background: NAVY }}>
+              <Save size={14} className="inline mr-1" /> Save Website Content
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {fields.map(section => (
+              <div key={section.title} className="rounded-xl border border-gray-100 p-4">
+                <h4 className="font-bold mb-3" style={{ color: NAVY }}>{section.title}</h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {section.items.map(([key, label]) => {
+                    const isLong = key.includes('description') || key.includes('extended') || key.includes('bullets') || key.includes('quote') || key.includes('tagline');
+                    return (
+                      <label key={key} className={isLong ? 'md:col-span-2' : ''}>
+                        <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</span>
+                        {isLong ? (
+                          <textarea rows={3} value={settingsDraft[key] || ''} onChange={e => updateDraft(key, e.target.value)} className="w-full px-4 py-2 rounded-lg border" />
+                        ) : (
+                          <input value={settingsDraft[key] || ''} onChange={e => updateDraft(key, e.target.value)} className="w-full px-4 py-2 rounded-lg border" />
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-white p-6 rounded-xl border">
           <h3 className="font-bold mb-3">Top Download Banner</h3>
           <div className="grid md:grid-cols-2 gap-4">
@@ -775,7 +1013,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
             <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!banner.is_active} onChange={e => setBanner({ ...banner, is_active: e.target.checked })} /> Active</label>
           </div>
           <div className="flex justify-end mt-4">
-            <button onClick={save} className="px-4 py-2 rounded-lg text-white" style={{ background: NAVY }}>Save</button>
+            <button onClick={saveBanner} className="px-4 py-2 rounded-lg text-white" style={{ background: NAVY }}>Save</button>
           </div>
         </div>
       </div>
@@ -788,24 +1026,57 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     const [editForm, setEditForm] = useState<any>(null);
 
     useEffect(() => {
-      supabase.from('media_library').select('*').then(({ data }) => data && setMediaList(data));
-    }, []);
+      if (isMockMode) {
+        const local = localStorage.getItem('local_media');
+        const items = local ? JSON.parse(local) : DEFAULT_MEDIA;
+        if (!local) localStorage.setItem('local_media', JSON.stringify(DEFAULT_MEDIA));
+        setMediaList(mergeMedia(items));
+      } else {
+        supabase.from('media_library').select('*').then(({ data }) => setMediaList(mergeMedia(data || [])));
+      }
+    }, [isMockMode]);
 
     const saveMedia = async (item: any) => {
-      if (item.id) {
-        await supabase.from('media_library').update({ ...item, updated_at: new Date().toISOString() }).eq('id', item.id);
-      } else {
-        await supabase.from('media_library').insert(item);
+      await saveMediaItem(item);
+      const local = localStorage.getItem('local_media');
+      if (isMockMode) setMediaList(mergeMedia(local ? JSON.parse(local) : DEFAULT_MEDIA));
+      else {
+        const { data } = await supabase.from('media_library').select('*');
+        setMediaList(mergeMedia(data || []));
       }
-      await loadAllData();
       setEditForm(null);
       showToast('Media saved');
     };
 
+    const uploadMedia = async (file: File | undefined) => {
+      if (!file) return;
+      try {
+        const mediaItem = await createMediaFromFile(file, editForm?.category || 'General');
+        setEditForm((prev: any) => ({ ...(prev || {}), ...mediaItem }));
+        showToast('Image uploaded. Add a name/category, then click Save.');
+      } catch (e: any) {
+        showToast(e.message || 'Image upload failed', 'error');
+      }
+    };
+
     const deleteMedia = async (id: string) => {
       if (!confirm('Delete this image?')) return;
-      await supabase.from('media_library').delete().eq('id', id);
-      await loadAllData();
+      if (String(id).startsWith('default-') || String(id).startsWith('training-') || String(id).startsWith('blog-')) {
+        showToast('Built-in images cannot be deleted, but you can ignore them or upload your own.', 'error');
+        return;
+      }
+      if (isMockMode) {
+        const local = localStorage.getItem('local_media');
+        const items = local ? JSON.parse(local).filter((item: any) => item.id !== id) : [];
+        localStorage.setItem('local_media', JSON.stringify(items));
+        setMediaList(mergeMedia(items));
+        setMedia(mergeMedia(items));
+      } else {
+        await supabase.from('media_library').delete().eq('id', id);
+        await loadAllData();
+        const { data } = await supabase.from('media_library').select('*');
+        setMediaList(mergeMedia(data || []));
+      }
       showToast('Image deleted');
     };
 
@@ -828,7 +1099,11 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
             <div className="grid md:grid-cols-2 gap-4">
               <input placeholder="Image Name" value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
               <input placeholder="Image URL" value={editForm.image_url || ''} onChange={e => setEditForm({ ...editForm, image_url: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
-              {editForm.image_url && <img src={editForm.image_url} alt="preview" className="col-span-2 h-32 object-cover rounded-lg" />}
+              <label className="col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-yellow-300 bg-white/70 px-4 py-3 text-sm">
+                <span className="font-semibold" style={{ color: NAVY }}>Upload new image from computer</span>
+                <input type="file" accept="image/*" onChange={e => uploadMedia(e.target.files?.[0])} className="text-sm" />
+              </label>
+              {editForm.image_url && <img src={editForm.image_url} alt="preview" className="col-span-2 max-h-72 w-full object-contain rounded-lg bg-white" />}
               <input placeholder="Alt Text" value={editForm.alt_text || ''} onChange={e => setEditForm({ ...editForm, alt_text: e.target.value })} className="px-4 py-2 rounded-lg border" />
               <select value={editForm.category || 'General'} onChange={e => setEditForm({ ...editForm, category: e.target.value })} className="px-4 py-2 rounded-lg border">
                 <option>General</option>
