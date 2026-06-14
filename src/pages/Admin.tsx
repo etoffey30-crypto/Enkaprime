@@ -1,2276 +1,1017 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { 
-  Menu, LogOut, Settings, Users, BookOpen, BarChart3, Briefcase, 
-  Save, Plus, Trash2, CreditCard as Edit3, Eye, EyeOff, 
-  ArrowLeft, RefreshCw, CheckCircle, AlertCircle, Star, 
-  Image as ImageIcon, Palette, Compass, Layout, 
-  ArrowUp, ArrowDown, FileText, Link, HelpCircle, Layers, GraduationCap
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  LayoutDashboard, Home, Info, Briefcase, GraduationCap, BookOpen,
+  Phone, Settings, LogOut, Menu, X, Save, Plus, Trash2, Edit3,
+  Image as ImageIcon, Users, Eye, CheckCircle, AlertCircle,
+  ChevronDown, ChevronUp, BarChart3, Mail, MessageSquare, Clock
 } from 'lucide-react';
 
 const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
+const ADMIN_PASS = 'enkaprime2026';
 
-type AdminTab = 'dashboard' | 'pages' | 'services' | 'programmes' | 'trainings' | 'blogs' | 'design_system' | 'navigation' | 'homepage_builder' | 'footer' | 'settings';
+// ── helpers ──────────────────────────────────────────────────────────────────
+const ls = {
+  get: (k: string, fallback: any = null) => {
+    try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  },
+  set: (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } },
+};
 
-interface SiteSetting { id: string; key: string; value: string; updated_at: string }
-interface Service { 
-  id: string; 
-  slug: string; 
-  title: string; 
-  short_description: string; 
-  long_description: string; 
-  image_url: string; 
-  sort_order: number; 
-  is_active: boolean; 
-  tagline?: string;
-  components?: string[];
-  pain_points?: string[];
-  solutions?: string[];
-  benefits?: string[];
-  created_at: string; 
-  updated_at: string; 
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function imgToDataUrl(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onerror = rej;
+    reader.onload = () => {
+      const raw = reader.result as string;
+      const img = new Image();
+      img.onerror = () => res(raw);
+      img.onload = () => {
+        const MAX = 1400;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        res(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = raw;
+    };
+    reader.readAsDataURL(file);
+  });
 }
-interface Programme { id: string; code: string; title: string; days: number; category: string; is_active: boolean; is_featured: boolean; description: string; upcoming_date: string; created_at: string; updated_at: string }
-interface CourseModule { id: string; code: string; title: string; description: string; duration: string }
 
+// ── default data ─────────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS: Record<string, string> = {
+  // Hero
+  hero_image: '/company1.jpg',
+  hero_slides: JSON.stringify([
+    '/company1.jpg',
+    'https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  ]),
+  hero_title: 'Empowering People.',
+  hero_badge_text: 'June 2026 Training Programmes Now Open',
+  hero_description: 'Enka Prime Consulting delivers world-class, in-house corporate training across leadership, finance, safety, digital skills and professional development — transforming organisations from within.',
+  hero_rotator_words: 'Performance, Systems, Compliance, Capability, Accountability',
+  // CTA
+  cta_title: 'Discover Our',
+  cta_discipline_highlight: 'Service Pillars',
+  cta_description: 'Four integrated service pillars designed to strengthen systems, improve compliance, and build organisational capacity.',
+  // About
+  about_title: 'Who We Are',
+  about_subtitle: 'Since Day One',
+  about_description: 'Enka Prime Consulting Ltd is a professional services and organisational improvement firm dedicated to helping organisations strengthen operational systems, improve compliance, enhance accountability, and build workforce capability.',
+  about_extended: 'Founded on the principle that sustainable organisational performance depends on strong systems, we combine practical implementation expertise with structured capacity-building methodologies.',
+  about_bullets: 'Records Digitalisation & Document Management Systems, Asset Tagging and Asset Register Development, ISO Implementation and Audit Support, Training and Capacity Building',
+  about_pull_quote: 'We do not simply deliver training or isolated services — we help organisations build the systems, structures, and capabilities that drive long-term performance and institutional resilience.',
+  // Contact
+  contact_email: 'info@enkaprime.com',
+  contact_phone: '0200 769 146',
+  contact_location: 'In-House — Nationwide Delivery',
+  // Footer
+  footer_tagline: 'Empowering People. Enhancing Performance. Delivering Excellence.',
+};
+
+const DEFAULT_SERVICES = [
+  { id: uid(), slug: 'records', title: 'Records Digitalisation', tagline: 'Turning paper trails into structured, searchable digital intelligence.', short_description: 'Structured digital records, document workflows, metadata tagging, and secure retrieval systems.', long_description: 'We transform paper-based filing systems into structured, searchable digital archives. Our team handles document classification, metadata design, access controls, and full EDMS configuration.', image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg', is_active: true, sort_order: 1,
+    components: ['Records audit and classification framework', 'Digital scanning and metadata tagging of physical records', 'Document Management System (DMS) design and implementation', 'Workflow automation for document routing and approvals', 'Access control and permission-based document security', 'Retention schedule development and archiving policies', 'Staff training on DMS usage and document protocols'],
+    pain_points: ['Thousands of physical files with no systematic organisation', 'Wasted hours searching for contracts, reports, or financial records', 'Lost or misplaced documents creating compliance and audit risks', 'No version control — staff working from outdated documents', 'Remote teams unable to access records quickly or securely', 'No retention policy — accumulation of irrelevant or obsolete files'],
+    solutions: ['Conduct a full records audit to classify, prioritise and categorise all documents', 'Design a structured folder taxonomy aligned with your organisational functions', 'Implement a cloud-based or on-premise DMS tailored to your infrastructure', 'Configure automated workflows for approvals, reviews and retention triggers', 'Establish role-based access to protect sensitive information', 'Develop a records management policy and train staff on adoption'],
+    benefits: ['Instant document retrieval — reducing search time by up to 80%', 'Full audit trail with version history and access logs', 'Improved compliance readiness for regulatory inspections', 'Secure remote access for distributed teams', 'Reduced storage costs by eliminating duplicate and redundant records', 'Greater organisational confidence and operational continuity'],
+  },
+  { id: uid(), slug: 'asset', title: 'Asset Tagging & Registers', tagline: 'Full visibility over every asset — from acquisition to disposal.', short_description: 'Physical asset verification, barcode or QR tagging, register development, and lifecycle visibility.', long_description: 'Complete asset lifecycle management from physical enumeration through tagging, register build, and ongoing custodian tracking. Integrates with accounting systems for accurate depreciation.', image_url: 'https://images.pexels.com/photos/6169668/pexels-photo-6169668.jpeg', is_active: true, sort_order: 2,
+    components: ['Physical asset verification and condition assessment', 'Barcode or QR code tagging of all identified assets', 'Asset register design and population in structured format', 'Asset categorisation by class, location, cost centre and status', 'Integration with financial systems and depreciation schedules', 'Disposals, write-offs, and asset movement tracking protocols', 'Staff training on asset management procedures'],
+    pain_points: ['No centralised register of what the organisation owns or where it is', 'Inability to reconcile physical assets with financial statements', 'Assets reported lost, stolen or "missing" with no tracking trail', 'Overstated or understated asset values due to lack of data', 'Annual audits delayed or failed because of incomplete asset records', 'No lifecycle tracking — assets replaced unnecessarily or used past useful life'],
+    solutions: ['Deploy a physical verification team to locate and document all assets', 'Apply durable barcode or QR labels to every identified item', 'Build a structured asset register capturing all required metadata', "Align asset data with your finance team's chart of accounts", 'Implement movement and disposal protocols to keep records current', 'Provide a digital dashboard for real-time asset status monitoring'],
+    benefits: ['A clean, complete and accurate asset register ready for audits', 'Dramatic reduction in asset losses and unaccountable disposals', 'Better financial reporting with correct depreciation calculations', 'Faster, cleaner audit processes — both internal and external', 'Informed procurement decisions based on real asset lifecycle data', 'Improved accountability across departments and locations'],
+  },
+  { id: uid(), slug: 'iso', title: 'ISO Implementation Support', tagline: 'Structured frameworks that build trust, reduce risk, and prove quality.', short_description: 'Gap assessments, process documentation, internal audit support, and ISO-aligned systems.', long_description: 'End-to-end ISO implementation covering gap analysis, policy writing, process documentation, internal audit training, and management review facilitation across ISO 9001, 27001, and 45001.', image_url: 'https://images.pexels.com/photos/5716001/pexels-photo-5716001.jpeg', is_active: true, sort_order: 3,
+    components: ['ISO gap analysis against relevant standard (ISO 9001, 14001, 45001, 27001)', 'Implementation roadmap and project management support', 'Documented quality management system (QMS) development', 'Process mapping and standard operating procedures (SOPs)', 'Internal audit programme design and execution', 'Corrective and preventive action (CAPA) systems', 'Pre-certification audit support and certification readiness review'],
+    pain_points: ['Unclear processes — staff operating from informal habits rather than defined procedures', 'Repeated errors and rework with no root cause analysis system', 'Clients or funders demanding ISO certification as a contract requirement', 'Failed or inconclusive audits due to incomplete documentation', 'Regulatory non-conformances with no structured corrective system', 'Leadership unsure of how to begin or sustain a compliance framework'],
+    solutions: ["Conduct a gap analysis to establish your baseline and identify what's missing", 'Develop a realistic, phased implementation plan from gap to certification', 'Build all required documentation — quality manual, SOPs, forms, registers', 'Train your internal team to run and maintain the management system', 'Conduct internal audits to validate conformance before certification', 'Provide ongoing support through the certification body audit process'],
+    benefits: ['Internationally recognised certification that builds client and investor confidence', 'Consistent, repeatable processes that reduce errors and rework', 'A structured framework for continuous improvement', 'Demonstrated compliance with legal, regulatory and contractual requirements', 'Competitive advantage in procurement and tendering processes', 'Reduced operational risk and improved organisational resilience'],
+  },
+  { id: uid(), slug: 'training', title: 'Training & Capacity Building', tagline: 'Workforce capability that sticks.', short_description: 'Custom in-house programmes that strengthen workforce capability, compliance culture, and performance.', long_description: 'Bespoke corporate training across leadership, customer service, HSE, finance, digital skills and professional development — all delivered in-house at your premises.', image_url: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg', is_active: true, sort_order: 4,
+    components: ['Training needs assessment and gap analysis', 'Customised programme design aligned to organisational goals', 'In-house delivery at your premises by experienced facilitators', 'Leadership and management development programmes', 'Customer service excellence training', 'Health, Safety & Environment (HSE) training', 'Finance for non-finance managers', 'Digital literacy and tools training', 'Post-training evaluation and impact measurement'],
+    pain_points: ['Generic off-the-shelf training that does not address real workplace challenges', 'Staff attending public workshops with no follow-up or application', 'Leadership skills gaps causing poor team performance', 'Poor customer service affecting retention and reputation', 'Compliance gaps due to untrained staff', 'High cost of sending multiple staff to external training venues'],
+    solutions: ['Conduct a training needs analysis before designing any programme', "Develop bespoke content using your organisation's real scenarios and language", 'Deliver training in-house to maximise contextual relevance and group learning', 'Use practical, skills-based methodologies rather than passive lecture formats', 'Provide facilitator guides and participant workbooks for knowledge retention', 'Offer post-training coaching and follow-up assessments on request'],
+    benefits: ['Directly applicable skills that transfer to the workplace immediately', 'Consistent training quality across all departments and locations', 'Cost-efficient delivery — one fee covers your entire team', 'Improved employee engagement and retention through investment in growth', 'Measurable performance improvement within 90 days of training', 'A culture of continuous learning embedded across the organisation'],
+  },
+];
+
+const DEFAULT_BLOGS = [
+  { id: uid(), title: 'Why In-House Training Delivers Greater ROI', excerpt: 'Discover why customised in-house programmes produce measurable results.', content: 'Full article content here...', featured_image_url: 'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg', category: 'Training', slug: 'in-house-training-roi', is_published: true, published_at: '2026-06-10T08:00:00Z', sort_order: 1 },
+  { id: uid(), title: 'The Roadmap to Successful Records Digitalisation', excerpt: 'Critical steps to design secure, compliant digital workflows.', content: 'Full article content here...', featured_image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg', category: 'Digital', slug: 'records-digitalisation-roadmap', is_published: true, published_at: '2026-06-01T10:00:00Z', sort_order: 2 },
+];
+
+const DEFAULT_TRAININGS = [
+  { id: uid(), title: 'Advanced Records Management & Digitalisation', short_summary: 'Master the transition from physical to digital records.', synopsis: 'Covers EDMS configuration, metadata design, access controls, and audit compliance.', image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg', category: 'Digital', duration: '3 Days', is_active: true, sort_order: 1 },
+  { id: uid(), title: 'Executive Leadership & Corporate Governance', short_summary: 'Empower senior management with strategic tools.', synopsis: 'Strategic planning, ethical oversight, risk management, and succession planning.', image_url: 'https://images.pexels.com/photos/3184418/pexels-photo-3184418.jpeg', category: 'Leadership', duration: '3 Days', is_active: true, sort_order: 2 },
+  { id: uid(), title: 'Customer Service Excellence', short_summary: 'Turn frontline staff into loyalty builders.', synopsis: 'EQ, active listening, complaint handling, and brand representation.', image_url: 'https://images.pexels.com/photos/3184298/pexels-photo-3184298.jpeg', category: 'Customer Service', duration: '2 Days', is_active: true, sort_order: 3 },
+];
+
+// ── sub-components ────────────────────────────────────────────────────────────
+function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
+  return (
+    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-semibold animate-fade-in-up`}
+      style={{ background: type === 'success' ? '#16a34a' : '#dc2626' }}>
+      {type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+      {msg}
+    </div>
+  );
+}
+
+function ImageUpload({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</label>
+      <div className="flex gap-3 items-start">
+        <div
+          onClick={() => ref.current?.click()}
+          className="w-24 h-16 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors overflow-hidden flex-shrink-0 bg-gray-50"
+        >
+          {value
+            ? <img src={value} alt="" className="w-full h-full object-cover" />
+            : <ImageIcon size={20} className="text-gray-300" />}
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <button type="button" onClick={() => ref.current?.click()}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg text-white"
+            style={{ background: NAVY }}>
+            Upload Image
+          </button>
+          {value && (
+            <button type="button" onClick={() => onChange('')}
+              className="ml-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600">
+              Remove
+            </button>
+          )}
+          <p className="text-[10px] text-gray-400">JPG, PNG — auto-compressed</p>
+        </div>
+      </div>
+      <input ref={ref} type="file" accept="image/*" className="hidden"
+        onChange={async e => { const f = e.target.files?.[0]; if (f) onChange(await imgToDataUrl(f)); }} />
+    </div>
+  );
+}
+
+function SlideUpload({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</label>
+      <div
+        onClick={() => ref.current?.click()}
+        className="relative w-full h-32 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors overflow-hidden bg-gray-50 group"
+      >
+        {value ? (
+          <>
+            <img src={value} alt={label} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="text-white text-xs font-bold bg-black/50 px-3 py-1.5 rounded-lg">Change Image</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-1 text-gray-300">
+            <ImageIcon size={28} />
+            <span className="text-[11px] font-semibold">Click to upload</span>
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => ref.current?.click()}
+          className="px-3 py-1.5 text-xs font-bold rounded-lg text-white flex-1"
+          style={{ background: NAVY }}>
+          Upload Image
+        </button>
+        {value && (
+          <button type="button" onClick={() => onChange('')}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600">
+            Remove
+          </button>
+        )}
+      </div>
+      <input ref={ref} type="file" accept="image/*" className="hidden"
+        onChange={async e => { const f = e.target.files?.[0]; if (f) onChange(await imgToDataUrl(f)); }} />
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, multiline = false, rows = 3 }: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean; rows?: number }) {
+  const cls = "w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 bg-white text-gray-800";
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</label>
+      {multiline
+        ? <textarea className={cls} rows={rows} value={value} onChange={e => onChange(e.target.value)} />
+        : <input type="text" className={cls} value={value} onChange={e => onChange(e.target.value)} />}
+    </div>
+  );
+}
+
+// ── main component ────────────────────────────────────────────────────────────
 export default function Admin({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [signUpSuccess, setSignUpSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+  const [authed, setAuthed] = useState(false);
+  const [pw, setPw] = useState('');
+  const [pwErr, setPwErr] = useState('');
+  const [tab, setTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  // Core Data States
-  const [settings, setSettings] = useState<SiteSetting[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [programmes, setProgrammes] = useState<Programme[]>([]);
-  const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
-  const [trainings, setTrainings] = useState<any[]>([]);
-  const [blogs, setBlogs] = useState<any[]>([]);
+  // data
+  const [settings, setSettings] = useState<Record<string, string>>(() => ({
+    ...DEFAULT_SETTINGS, ...ls.get('local_settings_map', {}),
+  }));
+  const [services, setServices] = useState<any[]>(() => ls.get('local_services', DEFAULT_SERVICES));
+  const [blogs, setBlogs] = useState<any[]>(() => ls.get('local_blogs_cms', DEFAULT_BLOGS));
+  const [trainings, setTrainings] = useState<any[]>(() => ls.get('local_trainings', DEFAULT_TRAININGS));
+  const [contacts, setContacts] = useState<any[]>(() => ls.get('local_contacts', []));
+  const [visitors, setVisitors] = useState<any[]>(() => ls.get('local_visitors', []));
 
-  // Settings Mapping
-  const [editingSettings, setEditingSettings] = useState<Record<string, string>>({});
-  const [originalSettings, setOriginalSettings] = useState<Record<string, string>>({});
-
-  // Active editors
-  const [editingService, setEditingService] = useState<Service | null>(null);
-  const [editingProgramme, setEditingProgramme] = useState<any | null>(null);
-  const [editingModule, setEditingModule] = useState<CourseModule | null>(null);
-  const [editingTraining, setEditingTraining] = useState<any | null>(null);
-  const [editingBlog, setEditingBlog] = useState<any | null>(null);
-
-  const [showNewService, setShowNewService] = useState(false);
-  const [showNewProgramme, setShowNewProgramme] = useState(false);
-  const [showNewModule, setShowNewModule] = useState(false);
-  const [showNewTraining, setShowNewTraining] = useState(false);
-  const [showNewBlog, setShowNewBlog] = useState(false);
-
-  // Content Management - Selected Page editor
-  const [selectedPage, setSelectedPage] = useState<'home' | 'about' | 'contact' | 'services'>('home');
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
+  // persist settings map back to the format App.tsx reads
+  const saveSetting = useCallback((key: string, value: string) => {
+    const next = { ...settings, [key]: value };
+    setSettings(next);
+    ls.set('local_settings_map', next);
+    // also write in array format for App.tsx loadPublicData
+    const arr = Object.entries(next).map(([k, v]) => ({ key: k, value: v }));
+    ls.set('local_settings', arr);
+    showToast('Saved');
+  }, [settings]);
+
+  const saveSettings = useCallback((updates: Record<string, string>) => {
+    const next = { ...settings, ...updates };
+    setSettings(next);
+    ls.set('local_settings_map', next);
+    const arr = Object.entries(next).map(([k, v]) => ({ key: k, value: v }));
+    ls.set('local_settings', arr);
+    showToast('Changes saved');
+  }, [settings]);
+
+  const saveServices = (s: any[]) => { setServices(s); ls.set('local_services', s); };
+  const saveBlogs = (b: any[]) => { setBlogs(b); ls.set('local_blogs_cms', b); ls.set('local_blogs', b); };
+  const saveTrainings = (t: any[]) => { setTrainings(t); ls.set('local_trainings', t); };
+
+  // track visitor on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
-    });
-    return () => subscription.unsubscribe();
+    const visit = { id: uid(), time: new Date().toISOString(), page: window.location.hash || '#home', ua: navigator.userAgent.slice(0, 80) };
+    const updated = [...ls.get('local_visitors', []), visit].slice(-500);
+    ls.set('local_visitors', updated);
+    setVisitors(updated);
   }, []);
 
-  const loadAllData = useCallback(async () => {
-    if (!session) return;
-    const [settingsRes, servicesRes, programmesRes, trainingsRes, blogsRes] = await Promise.all([
-      supabase.from('site_settings').select('*').order('key'),
-      supabase.from('services').select('*').order('sort_order'),
-      supabase.from('programmes').select('*').order('category, code'),
-      supabase.from('trainings').select('*').order('sort_order'),
-      supabase.from('blogs').select('*').order('sort_order'),
-    ]);
+  // check auth
+  useEffect(() => {
+    if (ls.get('admin_authed') === true) setAuthed(true);
+  }, []);
 
-    if (settingsRes.data) {
-      setSettings(settingsRes.data);
-      const map: Record<string, string> = {};
-      settingsRes.data.forEach((s: SiteSetting) => { map[s.key] = s.value; });
-      setEditingSettings(map);
-      setOriginalSettings(map);
-
-      // Parse reusable course modules
-      if (map.course_modules) {
-        try {
-          setCourseModules(JSON.parse(map.course_modules));
-        } catch (e) {
-          console.error('Failed to parse course modules:', e);
-        }
-      } else {
-        setCourseModules([]);
-      }
-    }
-    if (servicesRes.data) setServices(servicesRes.data);
-    if (programmesRes.data) setProgrammes(programmesRes.data);
-    if (trainingsRes.data) setTrainings(trainingsRes.data);
-    if (blogsRes.data) setBlogs(blogsRes.data);
-  }, [session]);
-
-  useEffect(() => { loadAllData(); }, [loadAllData]);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError('');
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) { setAuthError(error.message); return; }
-      setSignUpSuccess(true);
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setAuthError(error.message);
-    }
+    if (pw === ADMIN_PASS) { setAuthed(true); ls.set('admin_authed', true); }
+    else { setPwErr('Incorrect password'); setTimeout(() => setPwErr(''), 2000); }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-  };
+  const handleLogout = () => { setAuthed(false); ls.set('admin_authed', false); onNavigate('home'); };
 
-  // Helper: Central Save for Key/Value settings in Supabase
-  const saveSettingKey = async (key: string, value: string) => {
-    try {
-      const { error } = await supabase
-        .from('site_settings')
-        .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-      if (error) throw error;
-      showToast(`Saved ${key.replace(/_/g, ' ')} successfully`);
-      loadAllData();
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || 'Save failed', 'error');
-    }
-  };
-
-  const saveMultipleSettings = async (updates: Record<string, string>) => {
-    try {
-      const payload = Object.entries(updates).map(([key, value]) => ({
-        key,
-        value,
-        updated_at: new Date().toISOString()
-      }));
-      const { error } = await supabase.from('site_settings').upsert(payload, { onConflict: 'key' });
-      if (error) throw error;
-      showToast('Settings saved successfully');
-      loadAllData();
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || 'Save failed', 'error');
-    }
-  };
-
-  // ─── Service CRUD ───
-  const saveService = async (svc: Partial<Service>) => {
-    if (svc.title) {
-      const duplicate = services.find(s => s.id !== svc.id && s.title.trim().toLowerCase() === svc.title.trim().toLowerCase());
-      if (duplicate) {
-        showToast('A service with this title already exists. Titles must be unique.', 'error');
-        return;
-      }
-    }
-    if (svc.id) {
-      const { error } = await supabase.from('services').update({ ...svc, updated_at: new Date().toISOString() }).eq('id', svc.id);
-      if (error) { showToast(error.message, 'error'); return; }
-    } else {
-      const { error } = await supabase.from('services').insert(svc);
-      if (error) { showToast(error.message, 'error'); return; }
-    }
-    setEditingService(null);
-    setShowNewService(false);
-    await loadAllData();
-    showToast('Service saved');
-  };
-
-  const deleteService = async (id: string) => {
-    if (!confirm('Delete this service?')) return;
-    await supabase.from('services').delete().eq('id', id);
-    await loadAllData();
-    showToast('Service deleted');
-  };
-
-  const toggleServiceActive = async (id: string, is_active: boolean) => {
-    await supabase.from('services').update({ is_active: !is_active, updated_at: new Date().toISOString() }).eq('id', id);
-    await loadAllData();
-    showToast(`Service ${!is_active ? 'activated' : 'deactivated'}`);
-  };
-
-  // ─── Programme CRUD ───
-  const saveProgramme = async (prog: any) => {
-    // stringify modules array inside metadata if needed
-    const { id, ...data } = prog;
-    if (id) {
-      const { error } = await supabase.from('programmes').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) { showToast(error.message, 'error'); return; }
-    } else {
-      const { error } = await supabase.from('programmes').insert(data);
-      if (error) { showToast(error.message, 'error'); return; }
-    }
-    setEditingProgramme(null);
-    setShowNewProgramme(false);
-    await loadAllData();
-    showToast('Programme saved');
-  };
-
-  const deleteProgramme = async (id: string) => {
-    if (!confirm('Delete this programme?')) return;
-    await supabase.from('programmes').delete().eq('id', id);
-    await loadAllData();
-    showToast('Programme deleted');
-  };
-
-  const toggleProgrammeActive = async (id: string, is_active: boolean) => {
-    await supabase.from('programmes').update({ is_active: !is_active, updated_at: new Date().toISOString() }).eq('id', id);
-    await loadAllData();
-  };
-
-  const toggleProgrammeFeatured = async (id: string, is_featured: boolean) => {
-    await supabase.from('programmes').update({ is_featured: !is_featured, updated_at: new Date().toISOString() }).eq('id', id);
-    await loadAllData();
-  };
-
-  // ─── Trainings CRUD ───
-  const saveTraining = async (item: any) => {
-    const { id, ...data } = item;
-    if (id) {
-      const { error } = await supabase.from('trainings').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) { showToast(error.message, 'error'); return; }
-    } else {
-      const { error } = await supabase.from('trainings').insert(data);
-      if (error) { showToast(error.message, 'error'); return; }
-    }
-    setEditingTraining(null);
-    setShowNewTraining(false);
-    await loadAllData();
-    showToast('Training course saved');
-  };
-
-  const deleteTraining = async (id: string) => {
-    if (!confirm('Delete this training course?')) return;
-    const { error } = await supabase.from('trainings').delete().eq('id', id);
-    if (error) { showToast(error.message, 'error'); return; }
-    await loadAllData();
-    showToast('Training course deleted');
-  };
-
-  const toggleTrainingActive = async (id: string, is_active: boolean) => {
-    const { error } = await supabase.from('trainings').update({ is_active: !is_active, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) { showToast(error.message, 'error'); return; }
-    await loadAllData();
-  };
-
-  // ─── Blogs CRUD ───
-  const saveBlog = async (item: any) => {
-    const { id, ...data } = item;
-    if (!data.slug) {
-      data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    }
-    if (id) {
-      const { error } = await supabase.from('blogs').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) { showToast(error.message, 'error'); return; }
-    } else {
-      const { error } = await supabase.from('blogs').insert(data);
-      if (error) { showToast(error.message, 'error'); return; }
-    }
-    setEditingBlog(null);
-    setShowNewBlog(false);
-    await loadAllData();
-    showToast('Blog article saved');
-  };
-
-  const deleteBlog = async (id: string) => {
-    if (!confirm('Delete this blog article?')) return;
-    const { error } = await supabase.from('blogs').delete().eq('id', id);
-    if (error) { showToast(error.message, 'error'); return; }
-    await loadAllData();
-    showToast('Blog article deleted');
-  };
-
-  const toggleBlogPublished = async (id: string, is_published: boolean) => {
-    const published_at = !is_published ? new Date().toISOString() : null;
-    const { error } = await supabase.from('blogs').update({ is_published: !is_published, published_at, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) { showToast(error.message, 'error'); return; }
-    await loadAllData();
-  };
-
-  // ─── Reusable Modules CRUD ───
-  const saveCourseModule = async (mod: CourseModule) => {
-    let updated = [...courseModules];
-    const idx = updated.findIndex(m => m.id === mod.id);
-    if (idx >= 0) {
-      updated[idx] = mod;
-    } else {
-      updated.push(mod);
-    }
-    setCourseModules(updated);
-    setEditingModule(null);
-    setShowNewModule(false);
-    // save to Supabase site_settings
-    await saveSettingKey('course_modules', JSON.stringify(updated));
-  };
-
-  const deleteCourseModule = async (id: string) => {
-    if (!confirm('Delete this reusable course module?')) return;
-    const updated = courseModules.filter(m => m.id !== id);
-    setCourseModules(updated);
-    await saveSettingKey('course_modules', JSON.stringify(updated));
-  };
-
-  if (loading) {
+  if (!authed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900" style={{ background: NAVY }}>
-        <RefreshCw size={32} className="animate-spin text-custom-secondary" style={{ color: GOLD }} />
-      </div>
-    );
-  }
-
-  // Login View
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <img src="/newlogo.png" alt="Enka Prime" className="h-16 mx-auto mb-4 object-contain" />
-            <h1 className="text-2xl font-bold text-slate-800">Admin Portal</h1>
-            <p className="text-gray-500 text-sm mt-1">Sign in to manage consulting content</p>
+            <img src="/biglogo.png" alt="Enka Prime" className="h-16 mx-auto mb-4 object-contain" />
+            <h1 className="text-2xl font-bold" style={{ color: NAVY }}>Admin Portal</h1>
+            <p className="text-gray-400 text-sm mt-1">Enter your password to continue</p>
           </div>
-
           <form onSubmit={handleLogin} className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-            {authError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
-                <AlertCircle size={16} /> {authError}
-              </div>
-            )}
-            {signUpSuccess && (
-              <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm flex items-center gap-2">
-                <CheckCircle size={16} /> Account created! Log in below.
-              </div>
-            )}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2 text-slate-800">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 bg-gray-50 text-slate-800"
-                placeholder="admin@enkaprime.com"
-              />
-            </div>
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-2 text-slate-800">Password</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 bg-gray-50 text-slate-800"
-                placeholder="Enter password"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-3.5 font-bold rounded-xl text-white transition-all hover:scale-[1.02] bg-slate-900 hover:bg-slate-850"
-              style={{ background: NAVY }}
-            >
-              {isSignUp ? 'Create Account' : 'Sign In'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setIsSignUp(!isSignUp); setAuthError(''); setSignUpSuccess(false); }}
-              className="w-full mt-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Create one"}
-            </button>
+            {pwErr && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm flex items-center gap-2"><AlertCircle size={14} />{pwErr}</div>}
+            <label className="block text-sm font-semibold mb-2" style={{ color: NAVY }}>Password</label>
+            <input type="password" value={pw} onChange={e => setPw(e.target.value)} required
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 mb-5 text-gray-800" />
+            <button type="submit" className="w-full py-3.5 font-bold rounded-xl text-white" style={{ background: NAVY }}>Sign In</button>
           </form>
-
-          <button
-            onClick={() => onNavigate('home')}
-            className="w-full mt-4 flex items-center justify-center gap-2 py-3 text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors"
-          >
-            <ArrowLeft size={16} /> Back to Website
-          </button>
+          <button onClick={() => onNavigate('home')} className="w-full mt-4 text-gray-400 text-sm hover:text-gray-600 transition-colors">← Back to Website</button>
         </div>
       </div>
     );
   }
 
-  // Sidebar components config
-  const TAB_CONFIG: { key: AdminTab; label: string; icon: any }[] = [
-    { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { key: 'pages', label: 'Pages (Content)', icon: FileText },
-    { key: 'services', label: 'Services Manager', icon: Briefcase },
-    { key: 'programmes', label: 'Programmes & Modules', icon: BookOpen },
-    { key: 'trainings', label: 'Training Portfolio', icon: GraduationCap },
-    { key: 'blogs', label: 'Blogs Manager', icon: FileText },
-    { key: 'design_system', label: 'Design System', icon: Palette },
-    { key: 'navigation', label: 'Navigation Manager', icon: Compass },
-    { key: 'homepage_builder', label: 'Homepage Builder', icon: Layout },
-    { key: 'footer', label: 'Footer Settings', icon: Layers },
-    { key: 'settings', label: 'General Settings', icon: Settings },
+  const TABS = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'home', label: 'Home Page', icon: Home },
+    { id: 'about', label: 'About Page', icon: Info },
+    { id: 'services', label: 'Services', icon: Briefcase },
+    { id: 'trainings', label: 'Trainings', icon: GraduationCap },
+    { id: 'blogs', label: 'Blogs', icon: BookOpen },
+    { id: 'contact', label: 'Contact', icon: Phone },
+    { id: 'visitors', label: 'Visitors & Leads', icon: Users },
+    { id: 'settings', label: 'Site Settings', icon: Settings },
   ];
 
-  // 1. DASHBOARD VIEW
-  const DashboardView = () => (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Welcome to Enka Prime CMS</h2>
-          <p className="text-gray-500 text-sm">Control training parameters, modular configurations, and visual themes instantly.</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-bold text-green-600 bg-green-50 border border-green-200 px-3.5 py-1.5 rounded-full">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
-          Supabase Connected
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Active Services', count: services.length, icon: Users, color: '#3b82f6' },
-          { label: 'Catalogued Programmes', count: programmes.length, icon: BookOpen, color: '#10b981' },
-          { label: 'Reusable Modules', count: courseModules.length, icon: Layers, color: '#f59e0b' },
-          { label: 'Site Settings Saved', count: settings.length, icon: Settings, color: '#8b5cf6' },
-        ].map(item => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-xs font-bold text-gray-400 uppercase">{item.label}</span>
-                <Icon size={18} style={{ color: item.color }} />
-              </div>
-              <div className="text-3xl font-extrabold text-slate-800">{item.count}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Quick Links */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-lg mb-4">Quick Page Builders</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Edit Design System', tab: 'design_system' as AdminTab, icon: Palette },
-              { label: 'Manage Navigation', tab: 'navigation' as AdminTab, icon: Compass },
-              { label: 'Homepage Modules', tab: 'homepage_builder' as AdminTab, icon: Layout },
-              { label: 'Footer Brand Settings', tab: 'footer' as AdminTab, icon: Settings },
-            ].map(link => (
-              <button
-                key={link.label}
-                onClick={() => setActiveTab(link.tab)}
-                className="p-4 border border-gray-100 hover:border-yellow-500 rounded-xl flex flex-col gap-2 items-center text-center transition-colors group"
-              >
-                <link.icon size={22} className="text-gray-400 group-hover:text-custom-secondary" style={{ color: GOLD }} />
-                <span className="text-xs font-semibold text-slate-700">{link.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Featured list */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-lg mb-4">Featured Catalogue Highlights</h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            {programmes.filter(p => p.is_featured).length === 0 ? (
-              <p className="text-xs text-gray-400">No featured training programmes catalogued. Mark a programme as featured below.</p>
-            ) : (
-              programmes.filter(p => p.is_featured).map(p => (
-                <div key={p.id} className="flex justify-between items-center p-3 rounded-lg bg-yellow-50/50 border border-yellow-100">
-                  <div className="flex gap-2 items-center">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">{p.code}</span>
-                    <span className="text-xs font-bold text-slate-700">{p.title}</span>
-                  </div>
-                  <span className="text-xs text-slate-500 font-medium">{p.days} Days</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Image Upload Field helper
-  const ImageUploadField = ({ label, value, onChange }: { label: string; value: string; onChange: (val: string) => void }) => {
-    const fileRef = useRef<HTMLInputElement>(null);
-
-    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX = 800;
-              let w = img.width, h = img.height;
-              if (w > h && w > MAX) { h *= MAX / w; w = MAX; }
-              else if (h > w && h > MAX) { w *= MAX / h; h = MAX; }
-              canvas.width = w; canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(img, 0, 0, w, h);
-                onChange(canvas.toDataURL('image/jpeg', 0.75));
-              } else {
-                onChange(reader.result as string);
-              }
-            };
-            img.src = reader.result;
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    return (
-      <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/50 flex flex-col md:flex-row gap-5 items-start md:items-center">
-        <div 
-          onClick={() => fileRef.current?.click()}
-          className="w-full md:w-36 h-20 rounded-lg overflow-hidden border border-gray-200 bg-white flex items-center justify-center cursor-pointer hover:border-yellow-500 transition-all relative group flex-shrink-0"
-        >
-          {value ? (
-            <>
-              <img src={value} alt={label} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                Change Image
-              </div>
-            </>
-          ) : (
-            <div className="text-gray-400 flex flex-col items-center gap-0.5">
-              <ImageIcon size={18} />
-              <span className="text-[9px] font-bold">Upload Image</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 w-full space-y-2">
-          <div>
-            <label className="block text-[10px] font-bold mb-1 uppercase text-gray-400">{label}</label>
-            <input
-              type="text"
-              value={value || ''}
-              onChange={e => onChange(e.target.value)}
-              placeholder="Paste custom image URL or upload file"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs bg-white text-slate-800"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="file" ref={fileRef} onChange={handleFile} accept="image/*" className="hidden" />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="px-3 py-1.5 text-[10px] font-bold rounded bg-slate-800 text-white hover:bg-slate-700 transition-all"
-            >
-              Upload Local File
-            </button>
-            {value && (
-              <button
-                type="button"
-                onClick={() => onChange('')}
-                className="px-3 py-1.5 text-[10px] text-red-600 bg-red-50 hover:bg-red-100 font-bold rounded"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ─── SERVICES MANAGER VIEW ───
-  const ServicesManagerView = () => {
-    const [selectedService, setSelectedService] = useState<Service | null>(null);
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [tagline, setTagline] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
-    const [components, setComponents] = useState<string[]>([]);
-    const [painPoints, setPainPoints] = useState<string[]>([]);
-    const [solutions, setSolutions] = useState<string[]>([]);
-    const [benefits, setBenefits] = useState<string[]>([]);
-    const [isActive, setIsActive] = useState(true);
-
-    const [newComp, setNewComp] = useState('');
-    const [newPain, setNewPain] = useState('');
-    const [newSol, setNewSol] = useState('');
-    const [newBen, setNewBen] = useState('');
-
-    useEffect(() => {
-      if (selectedService) {
-        setTitle(selectedService.title || '');
-        setDescription(selectedService.short_description || '');
-        setTagline(selectedService.tagline || '');
-        setImageUrl(selectedService.image_url || '');
-        setComponents(selectedService.components || []);
-        setPainPoints(selectedService.pain_points || []);
-        setSolutions(selectedService.solutions || []);
-        setBenefits(selectedService.benefits || []);
-        setIsActive(selectedService.is_active);
-      } else if (services.length > 0) {
-        setSelectedService(services[0]);
-      }
-    }, [selectedService, services]);
-
-    const handleSave = async () => {
-      if (!selectedService) return;
-      
-      const payload: Partial<Service> = {
-        id: selectedService.id,
-        title,
-        short_description: description,
-        tagline,
-        image_url: imageUrl,
-        components,
-        pain_points: painPoints,
-        solutions,
-        benefits,
-        is_active: isActive,
-      };
-
-      await saveService(payload);
-    };
-
-    const addToArray = (arr: string[], setArr: React.Dispatch<React.SetStateAction<string[]>>, val: string, setVal: React.Dispatch<React.SetStateAction<string>>) => {
-      if (!val.trim()) return;
-      setArr([...arr, val.trim()]);
-      setVal('');
-    };
-
-    const removeFromArray = (arr: string[], setArr: React.Dispatch<React.SetStateAction<string[]>>, idx: number) => {
-      setArr(arr.filter((_, i) => i !== idx));
-    };
-
-    return (
-      <div className="grid lg:grid-cols-12 gap-6">
-        {/* Left: Services Sidebar List */}
-        <div className="lg:col-span-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-          <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-2">Service Pillars</h3>
-          <div className="space-y-2">
-            {services.map(svc => (
-              <button
-                key={svc.id}
-                onClick={() => setSelectedService(svc)}
-                className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
-                  selectedService?.id === svc.id
-                    ? 'border-yellow-500 bg-yellow-50/30 shadow-sm'
-                    : 'border-gray-100 hover:border-gray-300'
-                }`}
-              >
-                <div>
-                  <div className="font-bold text-sm text-slate-800">{svc.title.split(' & ')[0]}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">{svc.slug}</div>
-                </div>
-                <div className={`text-[10px] px-2 py-0.5 rounded font-bold ${svc.is_active ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-                  {svc.is_active ? 'Active' : 'Inactive'}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: Selected Service Form */}
-        <div className="lg:col-span-8 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-          {selectedService ? (
-            <>
-              <div className="flex items-center justify-between border-b pb-4">
-                <div>
-                  <h3 className="font-bold text-slate-800 text-base">Edit Service: {selectedService.title.split(' & ')[0]}</h3>
-                  <p className="text-gray-400 text-xs mt-0.5">Code: {selectedService.slug.toUpperCase()}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 font-semibold">Active Status:</span>
-                  <button
-                    onClick={() => setIsActive(!isActive)}
-                    className={`w-10 h-6 rounded-full transition-all relative ${isActive ? 'bg-yellow-500' : 'bg-gray-200'}`}
-                  >
-                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-all ${isActive ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {/* Title */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Service Title</label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border text-sm focus:border-yellow-500 outline-none font-custom"
-                  />
-                </div>
-
-                {/* Tagline / Subtitle */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Hero Subtitle / Tagline (Details Page)</label>
-                  <input
-                    type="text"
-                    value={tagline}
-                    onChange={e => setTagline(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border text-sm focus:border-yellow-500 outline-none font-custom"
-                    placeholder="e.g. Turning paper trails into structured digital intelligence"
-                  />
-                </div>
-
-                {/* Short Description */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Short Description (Overview Cards)</label>
-                  <textarea
-                    rows={3}
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border text-sm focus:border-yellow-500 outline-none font-custom"
-                  />
-                </div>
-
-                {/* Image */}
-                <ImageUploadField label="Service Header / Banner Image" value={imageUrl} onChange={setImageUrl} />
-
-                {/* Consulting Fields (Components, Pain Points, Solutions, Benefits) */}
-                {selectedService.slug !== 'training' && (
-                  <div className="space-y-6 pt-4 border-t border-gray-100">
-                    <h4 className="font-bold text-slate-800 text-sm">Detailed Consulting Configuration</h4>
-
-                    {/* Scope of Service Components */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-gray-500">Scope of Service / Components</label>
-                      <div className="space-y-1">
-                        {components.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 border rounded-lg text-xs gap-3">
-                            <span className="text-gray-700 font-medium">{item}</span>
-                            <button onClick={() => removeFromArray(components, setComponents, idx)} className="text-red-500 hover:text-red-700">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newComp}
-                          onChange={e => setNewComp(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToArray(components, setComponents, newComp, setNewComp); } }}
-                          placeholder="Add new scope item..."
-                          className="flex-1 px-3 py-1.5 rounded-lg border text-xs outline-none focus:border-yellow-500"
-                        />
-                        <button
-                          onClick={() => addToArray(components, setComponents, newComp, setNewComp)}
-                          className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Pain Points */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-gray-500">Pain Points (Current Problem)</label>
-                      <div className="space-y-1">
-                        {painPoints.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded-lg text-xs gap-3">
-                            <span className="text-gray-700 font-medium">{item}</span>
-                            <button onClick={() => removeFromArray(painPoints, setPainPoints, idx)} className="text-red-500 hover:text-red-700">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newPain}
-                          onChange={e => setNewPain(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToArray(painPoints, setPainPoints, newPain, setNewPain); } }}
-                          placeholder="Add new pain point..."
-                          className="flex-1 px-3 py-1.5 rounded-lg border text-xs outline-none focus:border-yellow-500"
-                        />
-                        <button
-                          onClick={() => addToArray(painPoints, setPainPoints, newPain, setNewPain)}
-                          className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Intervention / Solutions */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-gray-500">How We Intervene / Solutions</label>
-                      <div className="space-y-1">
-                        {solutions.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 bg-green-50 border border-green-100 rounded-lg text-xs gap-3">
-                            <span className="text-gray-700 font-medium">{item}</span>
-                            <button onClick={() => removeFromArray(solutions, setSolutions, idx)} className="text-red-500 hover:text-red-700">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newSol}
-                          onChange={e => setNewSol(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToArray(solutions, setSolutions, newSol, setNewSol); } }}
-                          placeholder="Add new solution step..."
-                          className="flex-1 px-3 py-1.5 rounded-lg border text-xs outline-none focus:border-yellow-500"
-                        />
-                        <button
-                          onClick={() => addToArray(solutions, setSolutions, newSol, setNewSol)}
-                          className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Benefits & Outcomes */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-gray-500">Outcomes & Benefits</label>
-                      <div className="space-y-1">
-                        {benefits.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 bg-yellow-50 border border-yellow-100 rounded-lg text-xs gap-3">
-                            <span className="text-gray-700 font-medium">{item}</span>
-                            <button onClick={() => removeFromArray(benefits, setBenefits, idx)} className="text-red-500 hover:text-red-700">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newBen}
-                          onChange={e => setNewBen(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToArray(benefits, setBenefits, newBen, setNewBen); } }}
-                          placeholder="Add new benefit..."
-                          className="flex-1 px-3 py-1.5 rounded-lg border text-xs outline-none focus:border-yellow-500"
-                        />
-                        <button
-                          onClick={() => addToArray(benefits, setBenefits, newBen, setNewBen)}
-                          className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Save Button */}
-              <div className="flex justify-end pt-4 border-t border-gray-100">
-                <button
-                  onClick={handleSave}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors font-custom"
-                >
-                  <Save size={14} /> Save Service Changes
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-16 text-gray-400 text-sm">
-              Select a service from the left to start editing.
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // 2. PAGES EDIT TAB
-  const PagesView = () => {
-    const handleFieldChange = (key: string, val: string) => {
-      setEditingSettings(prev => ({ ...prev, [key]: val }));
-    };
-
-    const renderPageFields = () => {
-      switch (selectedPage) {
-        case 'home':
-          return (
-            <div className="space-y-4">
-              <h4 className="font-bold text-slate-800 text-sm border-b pb-2 mb-2">Hero Section Content</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Hero Title</label>
-                  <input type="text" value={editingSettings.hero_title || ''} onChange={e => handleFieldChange('hero_title', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Badge Rotator / Text</label>
-                  <input type="text" value={editingSettings.hero_badge_text || ''} onChange={e => handleFieldChange('hero_badge_text', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Hero Description</label>
-                  <textarea rows={3} value={editingSettings.hero_description || ''} onChange={e => handleFieldChange('hero_description', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Hero Dynamic Word Rotator (Comma separated)</label>
-                  <input type="text" value={editingSettings.hero_rotator_words || ''} onChange={e => handleFieldChange('hero_rotator_words', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Performance, Systems, Compliance" />
-                </div>
-                <div className="md:col-span-2">
-                  <ImageUploadField label="Hero Banner Background Image" value={editingSettings.hero_image || ''} onChange={val => handleFieldChange('hero_image', val)} />
-                </div>
-              </div>
-
-              <h4 className="font-bold text-slate-800 text-sm border-b pb-2 pt-4 mb-2">Glassmorphic Console Widget Data</h4>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Widget Left Title</label>
-                  <input type="text" value={editingSettings.hero_widget_left_title || ''} onChange={e => handleFieldChange('hero_widget_left_title', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Widget Right Title</label>
-                  <input type="text" value={editingSettings.hero_widget_right_title || ''} onChange={e => handleFieldChange('hero_widget_right_title', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Widget Right Description</label>
-                  <input type="text" value={editingSettings.hero_widget_right_desc || ''} onChange={e => handleFieldChange('hero_widget_right_desc', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-              </div>
-            </div>
-          );
-        case 'about':
-          return (
-            <div className="space-y-4">
-              <h4 className="font-bold text-slate-800 text-sm border-b pb-2 mb-2">Who We Are Story block</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Story Title</label>
-                  <input type="text" value={editingSettings.about_title || ''} onChange={e => handleFieldChange('about_title', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Story Tagline / Mission</label>
-                  <input type="text" value={editingSettings.about_tagline || ''} onChange={e => handleFieldChange('about_tagline', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Primary Summary Description</label>
-                  <textarea rows={3} value={editingSettings.about_description || ''} onChange={e => handleFieldChange('about_description', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Extended Description (Secondary Paragraph)</label>
-                  <textarea rows={4} value={editingSettings.about_extended || ''} onChange={e => handleFieldChange('about_extended', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Dynamic About Bullets (Comma separated list)</label>
-                  <textarea rows={2} value={editingSettings.about_bullets || ''} onChange={e => handleFieldChange('about_bullets', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Pull Quote</label>
-                  <textarea rows={2} value={editingSettings.about_pull_quote || ''} onChange={e => handleFieldChange('about_pull_quote', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-              </div>
-
-              <h4 className="font-bold text-slate-800 text-sm border-b pb-2 pt-4 mb-2">Story Visual Elements</h4>
-              <div className="space-y-4">
-                <ImageUploadField label="Primary Story Image" value={editingSettings.about_image || ''} onChange={val => handleFieldChange('about_image', val)} />
-                <ImageUploadField label="Secondary Team Image" value={editingSettings.team_image || ''} onChange={val => handleFieldChange('team_image', val)} />
-                <ImageUploadField label="Partnership CTA banner" value={editingSettings.about_cta_image || ''} onChange={val => handleFieldChange('about_cta_image', val)} />
-              </div>
-            </div>
-          );
-        case 'services':
-          return (
-            <div className="space-y-4">
-              <h4 className="font-bold text-slate-800 text-sm border-b pb-2 mb-2">Disciplines Header & Highlights</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">CTA Headline</label>
-                  <input type="text" value={editingSettings.cta_title || ''} onChange={e => handleFieldChange('cta_title', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Highlight Word</label>
-                  <input type="text" value={editingSettings.cta_discipline_highlight || ''} onChange={e => handleFieldChange('cta_discipline_highlight', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">CTA Description</label>
-                  <textarea rows={2} value={editingSettings.cta_description || ''} onChange={e => handleFieldChange('cta_description', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <ImageUploadField label="CTA Background Image" value={editingSettings.cta_image || ''} onChange={val => handleFieldChange('cta_image', val)} />
-                </div>
-              </div>
-            </div>
-          );
-        case 'contact':
-          return (
-            <div className="space-y-4">
-              <h4 className="font-bold text-slate-800 text-sm border-b pb-2 mb-2">Contact Channels & Hero Backgrounds</h4>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Contact Email Address</label>
-                  <input type="email" value={editingSettings.contact_email || ''} onChange={e => handleFieldChange('contact_email', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Contact Phone Number</label>
-                  <input type="text" value={editingSettings.contact_phone || ''} onChange={e => handleFieldChange('contact_phone', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Contact Location</label>
-                  <input type="text" value={editingSettings.contact_location || ''} onChange={e => handleFieldChange('contact_location', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4">
-                <ImageUploadField label="Contact Page Banner Image" value={editingSettings.contact_hero_image || ''} onChange={val => handleFieldChange('contact_hero_image', val)} />
-                <ImageUploadField label="Training Catalog Banner Image" value={editingSettings.programmes_hero_image || ''} onChange={val => handleFieldChange('programmes_hero_image', val)} />
-              </div>
-            </div>
-          );
-        default:
-          return null;
-      }
-    };
-
-    const handleSavePage = async () => {
-      // Find what page settings we should save
-      const homeKeys = ['hero_title', 'hero_badge_text', 'hero_description', 'hero_rotator_words', 'hero_image', 'hero_widget_left_title', 'hero_widget_right_title', 'hero_widget_right_desc'];
-      const aboutKeys = ['about_title', 'about_tagline', 'about_description', 'about_extended', 'about_bullets', 'about_pull_quote', 'about_image', 'team_image', 'about_cta_image'];
-      const servicesKeys = ['cta_title', 'cta_discipline_highlight', 'cta_description', 'cta_image'];
-      const contactKeys = ['contact_email', 'contact_phone', 'contact_location', 'contact_hero_image', 'programmes_hero_image'];
-
-      let targetKeys: string[] = [];
-      if (selectedPage === 'home') targetKeys = homeKeys;
-      if (selectedPage === 'about') targetKeys = aboutKeys;
-      if (selectedPage === 'services') targetKeys = servicesKeys;
-      if (selectedPage === 'contact') targetKeys = contactKeys;
-
-      const payload: Record<string, string> = {};
-      targetKeys.forEach(k => {
-        payload[k] = editingSettings[k] || '';
-      });
-
-      await saveMultipleSettings(payload);
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-800">Page Content Management</h2>
-            <p className="text-slate-500 text-xs">Edit layout texts, visuals, rotator phrases, and bullets across your site.</p>
-          </div>
-          <button
-            onClick={handleSavePage}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-yellow-500 text-slate-900 font-bold text-xs rounded-xl hover:scale-105 transition-all shadow-md"
-            style={{ backgroundColor: GOLD, color: NAVY }}
-          >
-            <Save size={14} /> Save Page Content
-          </button>
-        </div>
-
-        {/* Page selector buttons */}
-        <div className="flex border-b border-gray-200">
-          {(['home', 'about', 'services', 'contact'] as const).map(p => (
-            <button
-              key={p}
-              onClick={() => setSelectedPage(p)}
-              className={`px-6 py-3 font-bold text-xs uppercase tracking-wider border-b-2 transition-colors ${selectedPage === p ? 'border-yellow-600 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-              style={selectedPage === p ? { borderColor: GOLD, color: GOLD } : {}}
-            >
-              {p} Page
-            </button>
-          ))}
-        </div>
-
-        {/* Render Form */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          {renderPageFields()}
-        </div>
-      </div>
-    );
-  };
-
-  // 3. PROGRAMMES & REUSABLE MODULES VIEW
-  const ProgrammesView = () => {
-    // Helper to generate UUID for course modules
-    const generateUUID = () => {
-      return 'mod-' + Math.random().toString(36).substr(2, 9) + '-' + Math.random().toString(36).substr(2, 9);
-    };
-
-    return (
-      <div className="space-y-8">
-        {/* programmes crud catalogue */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">Training Programmes</h2>
-              <p className="text-xs text-gray-500">Edit core training subjects visible in the training catalogue.</p>
-            </div>
-            <button
-              onClick={() => setEditingProgramme({ code: '', title: '', days: 2, category: 'General', is_active: true, is_featured: false, description: '', upcoming_date: '' })}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all"
-              style={{ backgroundColor: NAVY }}
-            >
-              <Plus size={14} /> Add Programme
-            </button>
-          </div>
-
-          {editingProgramme && (
-            <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-4">
-              <h3 className="font-bold text-sm text-slate-800 mb-3">{editingProgramme.id ? 'Edit Programme Details' : 'Add New Programme to Catalogue'}</h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Code</label>
-                  <input type="text" value={editingProgramme.code || ''} onChange={e => setEditingProgramme({ ...editingProgramme, code: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. LMT 101" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
-                  <select value={editingProgramme.category || 'General'} onChange={e => setEditingProgramme({ ...editingProgramme, category: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm">
-                    {['Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'].map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Programme Title</label>
-                  <input type="text" value={editingProgramme.title || ''} onChange={e => setEditingProgramme({ ...editingProgramme, title: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Duration (Days)</label>
-                  <input type="number" min={1} value={editingProgramme.days || 1} onChange={e => setEditingProgramme({ ...editingProgramme, days: parseInt(e.target.value) })} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Upcoming Date / Schedule</label>
-                  <input type="text" value={editingProgramme.upcoming_date || ''} onChange={e => setEditingProgramme({ ...editingProgramme, upcoming_date: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. June 10-12, 2026" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Brief Description</label>
-                  <textarea rows={2} value={editingProgramme.description || ''} onChange={e => setEditingProgramme({ ...editingProgramme, description: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setEditingProgramme(null)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700">Cancel</button>
-                <button onClick={() => saveProgramme(editingProgramme)} className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" style={{ backgroundColor: NAVY }}>Save</button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2 max-h-96 overflow-y-auto bg-white p-4 rounded-xl border border-gray-100">
-            {programmes.map(prog => (
-              <div key={prog.id} className="flex justify-between items-center p-3 rounded-lg border border-gray-150 hover:bg-slate-50">
-                <div className="text-left">
-                  <div className="flex gap-2 items-center mb-1 flex-wrap">
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">{prog.code}</span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800" style={{ color: '#8a6b1e', background: `${GOLD}22` }}>{prog.category}</span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-600">{prog.days} Days</span>
-                    {prog.upcoming_date && <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">{prog.upcoming_date}</span>}
-                    {prog.is_featured && <span className="text-[9px] font-extrabold text-yellow-600 uppercase">★ Featured</span>}
-                  </div>
-                  <h4 className="text-xs font-bold text-slate-800">{prog.title}</h4>
-                </div>
-                <div className="flex gap-1.5">
-                  <button onClick={() => toggleProgrammeFeatured(prog.id, prog.is_featured)} className="p-1.5 hover:bg-gray-100 rounded text-slate-500" title="Toggle Featured status">
-                    <Star size={14} className={prog.is_featured ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
-                  </button>
-                  <button onClick={() => toggleProgrammeActive(prog.id, prog.is_active)} className="p-1.5 hover:bg-gray-100 rounded" title="Toggle Visibility">
-                    {prog.is_active ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}
-                  </button>
-                  <button onClick={() => setEditingProgramme(prog)} className="p-1.5 hover:bg-gray-100 rounded" title="Edit text">
-                    <Edit3 size={14} className="text-yellow-600" />
-                  </button>
-                  <button onClick={() => deleteProgramme(prog.id)} className="p-1.5 hover:bg-red-50 rounded text-red-500" title="Delete">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Reusable modules section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">Reusable Course Modules</h2>
-              <p className="text-xs text-gray-500">Manage fine-grained training blocks that can be shared across classes.</p>
-            </div>
-            <button
-              onClick={() => setEditingModule({ id: generateUUID(), code: '', title: '', description: '', duration: '3 Hours' })}
-              className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500 text-slate-900 rounded-lg text-xs font-bold hover:scale-105 transition-all"
-              style={{ backgroundColor: GOLD, color: NAVY }}
-            >
-              <Plus size={14} /> Add Course Module
-            </button>
-          </div>
-
-          {editingModule && (
-            <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-4">
-              <h3 className="font-bold text-sm text-slate-800 mb-3">{editingModule.title ? 'Edit Course Module' : 'Create Course Module'}</h3>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Module Code</label>
-                  <input type="text" value={editingModule.code || ''} onChange={e => setEditingModule({ ...editingModule, code: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. MOD-LMT-01" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Module Title</label>
-                  <input type="text" value={editingModule.title || ''} onChange={e => setEditingModule({ ...editingModule, title: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Average Duration</label>
-                  <input type="text" value={editingModule.duration || ''} onChange={e => setEditingModule({ ...editingModule, duration: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. 3 Hours or 1 Day" />
-                </div>
-                <div className="md:col-span-3">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Detailed Syllabus / Focus Description</label>
-                  <textarea rows={2} value={editingModule.description || ''} onChange={e => setEditingModule({ ...editingModule, description: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setEditingModule(null)} className="px-4 py-2 text-xs font-bold text-gray-500">Cancel</button>
-                <button onClick={() => saveCourseModule(editingModule)} className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" style={{ backgroundColor: NAVY }}>Save Module</button>
-              </div>
-            </div>
-          )}
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {courseModules.length === 0 ? (
-              <div className="md:col-span-2 text-center py-8 bg-white rounded-xl border text-xs text-gray-400">
-                No course modules catalogued. Create a new module using the button above.
-              </div>
-            ) : (
-              courseModules.map(mod => (
-                <div key={mod.id} className="bg-white p-5 rounded-2xl border border-gray-150 hover:shadow-md transition-shadow relative text-left">
-                  <span className="absolute top-4 right-4 text-[9px] font-bold px-2 py-0.5 rounded bg-gray-150 text-gray-600">{mod.duration}</span>
-                  <div className="text-[10px] font-bold text-custom-secondary mb-1 uppercase tracking-wider">{mod.code || 'NO CODE'}</div>
-                  <h4 className="font-bold text-slate-800 text-sm mb-2">{mod.title || 'Untitled Module'}</h4>
-                  <p className="text-gray-500 text-xs leading-relaxed mb-4 line-clamp-2">{mod.description || 'No syllabus provided.'}</p>
-                  
-                  <div className="flex justify-end gap-2 border-t pt-3">
-                    <button onClick={() => setEditingModule(mod)} className="text-xs font-bold text-custom-secondary hover:underline flex items-center gap-0.5"><Edit3 size={12} /> Edit</button>
-                    <button onClick={() => deleteCourseModule(mod.id)} className="text-xs font-bold text-red-500 hover:underline flex items-center gap-0.5"><Trash2 size={12} /> Delete</button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // 4. DESIGN SYSTEM EDIT TAB
-  const DesignSystemView = () => {
-    // Current design settings
-    const ds = editingSettings.design_system ? JSON.parse(editingSettings.design_system) : {
-      primary_color: '#0F2044',
-      secondary_color: '#C9A84C',
-      accent_color: '#F3F4F6',
-      font_family: 'Inter',
-      base_font_size: '16px',
-      spacing_density: 'comfortable',
-      button_preset: 'rounded'
-    };
-
-    const handleDSChange = (key: string, val: string) => {
-      const updatedDS = { ...ds, [key]: val };
-      setEditingSettings(prev => ({ ...prev, design_system: JSON.stringify(updatedDS) }));
-    };
-
-    const saveDSTokens = async () => {
-      await saveSettingKey('design_system', JSON.stringify(ds));
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Dynamic Design System Controls</h2>
-            <p className="text-xs text-gray-500">Inject dynamic CSS variables to alter colors, buttons, fonts, and space densities across Enka Prime.</p>
-          </div>
-          <button
-            onClick={saveDSTokens}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-yellow-500 text-slate-900 font-bold text-xs rounded-xl hover:scale-105 transition-all shadow-md"
-            style={{ backgroundColor: GOLD, color: NAVY }}
-          >
-            <Palette size={14} /> Inject CSS Design Tokens
-          </button>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left">
-          {/* Color palette */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-3">Color Palette System</h3>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Primary Color (Nav, Footer, Strong Headers)</label>
-              <div className="flex gap-2">
-                <input type="color" value={ds.primary_color || '#0F2044'} onChange={e => handleDSChange('primary_color', e.target.value)} className="w-10 h-10 border rounded cursor-pointer" />
-                <input type="text" value={ds.primary_color || ''} onChange={e => handleDSChange('primary_color', e.target.value)} className="flex-1 px-3 py-2 border rounded-lg text-sm uppercase" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Secondary Brand Color (Gold Accent, Buttons, Active Highlights)</label>
-              <div className="flex gap-2">
-                <input type="color" value={ds.secondary_color || '#C9A84C'} onChange={e => handleDSChange('secondary_color', e.target.value)} className="w-10 h-10 border rounded cursor-pointer" />
-                <input type="text" value={ds.secondary_color || ''} onChange={e => handleDSChange('secondary_color', e.target.value)} className="flex-1 px-3 py-2 border rounded-lg text-sm uppercase" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Light Accent Color (Cards, Section backgrounds)</label>
-              <div className="flex gap-2">
-                <input type="color" value={ds.accent_color || '#F3F4F6'} onChange={e => handleDSChange('accent_color', e.target.value)} className="w-10 h-10 border rounded cursor-pointer" />
-                <input type="text" value={ds.accent_color || ''} onChange={e => handleDSChange('accent_color', e.target.value)} className="flex-1 px-3 py-2 border rounded-lg text-sm uppercase" />
-              </div>
-            </div>
-          </div>
-
-          {/* Typography */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-3">Typography & Font Scales</h3>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Font Family</label>
-              <select value={ds.font_family || 'Inter'} onChange={e => handleDSChange('font_family', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm">
-                {['Inter', 'Roboto', 'Outfit', 'Playfair Display', 'Montserrat', 'Syne'].map(font => (
-                  <option key={font} value={font}>{font}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Base Font Size</label>
-              <select value={ds.base_font_size || '16px'} onChange={e => handleDSChange('base_font_size', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm">
-                {['14px', '15px', '16px', '17px', '18px'].map(size => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Sizing, spacing & button styles */}
-          <div className="space-y-4 md:col-span-2">
-            <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-3">Interface Density & Shape Presets</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Spacing Density</label>
-                <div className="flex gap-2">
-                  {(['compact', 'comfortable', 'loose'] as const).map(density => (
-                    <button
-                      key={density}
-                      onClick={() => handleDSChange('spacing_density', density)}
-                      className={`flex-1 py-2 font-bold text-xs uppercase tracking-wide border rounded-xl capitalize ${ds.spacing_density === density ? 'bg-slate-900 border-slate-900 text-white' : 'bg-gray-50 border-gray-200 text-slate-600 hover:bg-gray-100'}`}
-                      style={ds.spacing_density === density ? { background: NAVY } : {}}
-                    >
-                      {density}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Button Style Shape Preset</label>
-                <div className="flex gap-2">
-                  {(['square', 'rounded', 'rounded-lg', 'pill'] as const).map(preset => (
-                    <button
-                      key={preset}
-                      onClick={() => handleDSChange('button_preset', preset)}
-                      className={`flex-1 py-2 font-bold text-xs uppercase tracking-wide border rounded-xl capitalize ${ds.button_preset === preset ? 'bg-slate-900 border-slate-900 text-white' : 'bg-gray-50 border-gray-200 text-slate-600 hover:bg-gray-100'}`}
-                      style={ds.button_preset === preset ? { background: NAVY } : {}}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // 5. NAVIGATION MANAGER TAB
-  const NavigationManagerView = () => {
-    // Current navigation state
-    const currentMenu: any[] = editingSettings.navigation_menu ? JSON.parse(editingSettings.navigation_menu) : [
-      { id: '1', label: 'Home', href: 'home', link_type: 'page', is_active: true },
-      { id: '2', label: 'Services', href: 'services', link_type: 'page', is_active: true },
-      { id: '3', label: 'Programmes', href: 'programmes', link_type: 'page', is_active: true },
-      { id: '4', label: 'About', href: 'about', link_type: 'page', is_active: true },
-      { id: '5', label: 'Contact', href: 'contact', link_type: 'page', is_active: true },
-    ];
-
-    const [editingLink, setEditingLink] = useState<any | null>(null);
-
-    const saveNavigationMenu = async (updatedMenu: any[]) => {
-      setEditingSettings(prev => ({ ...prev, navigation_menu: JSON.stringify(updatedMenu) }));
-      await saveSettingKey('navigation_menu', JSON.stringify(updatedMenu));
-    };
-
-    const handleMove = async (idx: number, direction: 'up' | 'down') => {
-      const updated = [...currentMenu];
-      if (direction === 'up' && idx > 0) {
-        [updated[idx], updated[idx - 1]] = [updated[idx - 1], updated[idx]];
-      } else if (direction === 'down' && idx < updated.length - 1) {
-        [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
-      }
-      await saveNavigationMenu(updated);
-    };
-
-    const handleSaveLink = async (link: any) => {
-      let updated = [...currentMenu];
-      const idx = updated.findIndex(l => l.id === link.id);
-      if (idx >= 0) {
-        updated[idx] = link;
-      } else {
-        updated.push(link);
-      }
-      setEditingLink(null);
-      await saveNavigationMenu(updated);
-    };
-
-    const handleDeleteLink = async (id: string) => {
-      if (!confirm('Remove this navigation item?')) return;
-      const updated = currentMenu.filter(l => l.id !== id);
-      await saveNavigationMenu(updated);
-    };
-
-    const toggleLinkActive = async (link: any) => {
-      const updated = currentMenu.map(l => l.id === link.id ? { ...l, is_active: !l.is_active } : l);
-      await saveNavigationMenu(updated);
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Navigation Menu Manager</h2>
-            <p className="text-xs text-gray-500">Reorder, add, or toggle page, section anchor, or external links globally.</p>
-          </div>
-          <button
-            onClick={() => setEditingLink({ id: 'nav-' + Math.random().toString(36).substr(2, 9), label: '', href: '', link_type: 'page', is_active: true })}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all animate-glow"
-            style={{ backgroundColor: NAVY }}
-          >
-            <Plus size={14} /> Add Menu Link
-          </button>
-        </div>
-
-        {editingLink && (
-          <div className="bg-yellow-50 border border-yellow-250 p-5 rounded-2xl text-left">
-            <h3 className="font-bold text-sm text-slate-800 mb-3">Navigation Menu Item Form</h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Display Label</label>
-                <input type="text" value={editingLink.label || ''} onChange={e => setEditingLink({ ...editingLink, label: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. Courses" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Link Target (href)</label>
-                <input type="text" value={editingLink.href || ''} onChange={e => setEditingLink({ ...editingLink, href: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="e.g. programmes or #services" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Link Destination Type</label>
-                <select value={editingLink.link_type || 'page'} onChange={e => setEditingLink({ ...editingLink, link_type: e.target.value })} className="w-full px-3 py-2.5 rounded-lg border text-sm">
-                  <option value="page">Standard page</option>
-                  <option value="section">Homepage Anchor (#id)</option>
-                  <option value="external">External Website (opens in new tab)</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setEditingLink(null)} className="px-4 py-2 text-xs font-bold text-gray-500">Cancel</button>
-              <button onClick={() => handleSaveLink(editingLink)} className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" style={{ backgroundColor: NAVY }}>Save Link</button>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white p-4 rounded-xl border border-gray-150 space-y-2">
-          {currentMenu.map((link, idx) => (
-            <div key={link.id} className="flex justify-between items-center p-3 rounded-lg border border-gray-100 hover:bg-slate-50">
-              <div className="flex items-center gap-4 text-left">
-                <span className="text-[10px] font-bold text-gray-400 w-4">#{idx + 1}</span>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">{link.label}</h4>
-                  <p className="text-[10px] text-gray-400 font-medium font-mono truncate max-w-sm">
-                    {link.link_type === 'external' ? '🌐 External' : link.link_type === 'section' ? '⚓ Anchor' : '📄 Page'} • href: {link.href}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => handleMove(idx, 'up')} disabled={idx === 0} className="p-1.5 hover:bg-gray-100 rounded text-slate-500 disabled:opacity-30">
-                  <ArrowUp size={14} />
-                </button>
-                <button onClick={() => handleMove(idx, 'down')} disabled={idx === currentMenu.length - 1} className="p-1.5 hover:bg-gray-100 rounded text-slate-500 disabled:opacity-30">
-                  <ArrowDown size={14} />
-                </button>
-                <button onClick={() => toggleLinkActive(link)} className="p-1.5 hover:bg-gray-100 rounded">
-                  {link.is_active !== false ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}
-                </button>
-                <button onClick={() => setEditingLink(link)} className="p-1.5 hover:bg-gray-100 rounded text-yellow-600">
-                  <Edit3 size={14} />
-                </button>
-                <button onClick={() => handleDeleteLink(link.id)} className="p-1.5 hover:bg-red-50 rounded text-red-500">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // 6. HOMEPAGE BUILDER TAB
-  const HomepageBuilderView = () => {
-    // Current layout structure
-    const currentModules: any[] = editingSettings.homepage_modules ? JSON.parse(editingSettings.homepage_modules) : [
-      { id: 'hero', type: 'hero', is_visible: true },
-      { id: 'cta', type: 'cta', is_visible: true },
-      { id: 'about_preview', type: 'about_preview', is_visible: true },
-      { id: 'services', type: 'services', is_visible: true },
-      { id: 'industries', type: 'industries', is_visible: true },
-      { id: 'why_choose_us', type: 'why_choose_us', is_visible: true }
-    ];
-
-    const saveModulesLayout = async (updated: any[]) => {
-      setEditingSettings(prev => ({ ...prev, homepage_modules: JSON.stringify(updated) }));
-      await saveSettingKey('homepage_modules', JSON.stringify(updated));
-    };
-
-    const handleMove = async (idx: number, direction: 'up' | 'down') => {
-      const updated = [...currentModules];
-      if (direction === 'up' && idx > 0) {
-        [updated[idx], updated[idx - 1]] = [updated[idx - 1], updated[idx]];
-      } else if (direction === 'down' && idx < updated.length - 1) {
-        [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
-      }
-      await saveModulesLayout(updated);
-    };
-
-    const toggleVisibility = async (idx: number) => {
-      const updated = [...currentModules];
-      updated[idx].is_visible = !updated[idx].is_visible;
-      await saveModulesLayout(updated);
-    };
-
-    const getModuleName = (type: string) => {
-      const map: Record<string, string> = {
-        hero: 'Hero Rotator & Visual Dashboard',
-        cta: 'Subject Catalog / Discipline Action CTA',
-        about_preview: 'About preview & Pull quotes',
-        services: 'Interactive Capabilities Grid',
-        industries: 'Premium Industries grid',
-        why_choose_us: 'Advantage & Commitment grid'
-      };
-      return map[type] || type.toUpperCase();
-    };
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Homepage Module Builder</h2>
-          <p className="text-xs text-gray-500">Reorder visual sections, toggle block visibilities, and edit content instantly.</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-150 space-y-2">
-          {currentModules.map((mod, idx) => (
-            <div key={mod.id} className="flex justify-between items-center p-3 rounded-lg border border-gray-100 hover:bg-slate-50">
-              <div className="flex items-center gap-4 text-left">
-                <span className="text-[10px] font-bold text-gray-400 w-4">#{idx + 1}</span>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 capitalize">{mod.type.replace(/_/g, ' ')}</h4>
-                  <p className="text-[10px] text-gray-500 font-medium font-mono">{getModuleName(mod.type)}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleMove(idx, 'up')} disabled={idx === 0} className="p-1.5 hover:bg-gray-100 rounded text-slate-500 disabled:opacity-30">
-                  <ArrowUp size={14} />
-                </button>
-                <button onClick={() => handleMove(idx, 'down')} disabled={idx === currentModules.length - 1} className="p-1.5 hover:bg-gray-100 rounded text-slate-500 disabled:opacity-30">
-                  <ArrowDown size={14} />
-                </button>
-                <button onClick={() => toggleVisibility(idx)} className="p-1.5 hover:bg-gray-100 rounded text-slate-500">
-                  {mod.is_visible !== false ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // 7. FOOTER EDIT TAB
-  const FooterEditView = () => {
-    // Current state
-    const footerConfig = editingSettings.footer_config ? JSON.parse(editingSettings.footer_config) : {
-      description: 'Professional corporate training that transforms people and organisations.',
-      contact_email: editingSettings.contact_email || 'info@enkaprime.com',
-      contact_phone: editingSettings.contact_phone || '0200 769 146',
-      linkedin_url: 'https://linkedin.com/company/enkaprime',
-      copyright_text: '© 2026 Enka Prime Consulting Ltd. All rights reserved.',
-      tagline: editingSettings.about_tagline || 'Empowering People. Enhancing Performance. Delivering Excellence.'
-    };
-
-    const handleFooterChange = (key: string, val: string) => {
-      const updated = { ...footerConfig, [key]: val };
-      setEditingSettings(prev => ({ ...prev, footer_config: JSON.stringify(updated) }));
-    };
-
-    const saveFooterSettings = async () => {
-      // Save footer_config JSON
-      await saveSettingKey('footer_config', JSON.stringify(footerConfig));
-
-      // Also save social links as top-level keys for compatibility
-      if (footerConfig.facebook_url) await saveSettingKey('facebook_url', footerConfig.facebook_url);
-      if (footerConfig.whatsapp_url) await saveSettingKey('whatsapp_url', footerConfig.whatsapp_url);
-
-      // Save service pillars and target industries as JSON arrays (comma-separated input)
-      if (footerConfig.service_pillars) {
-        const pillarsArr = footerConfig.service_pillars.split(',').map((s: string) => s.trim()).filter(Boolean);
-        await saveSettingKey('service_pillars', JSON.stringify(pillarsArr));
-      }
-      if (footerConfig.target_industries) {
-        const indsArr = footerConfig.target_industries.split(',').map((s: string) => s.trim()).filter(Boolean);
-        await saveSettingKey('target_industries', JSON.stringify(indsArr));
-      }
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Footer Settings</h2>
-            <p className="text-xs text-gray-500">Edit contact details, copyright notices, and LinkedIn company URLs globally.</p>
-          </div>
-          <button
-            onClick={saveFooterSettings}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-yellow-500 text-slate-900 font-bold text-xs rounded-xl hover:scale-105 transition-all shadow-md"
-            style={{ backgroundColor: GOLD, color: NAVY }}
-          >
-            <Layers size={14} /> Save Footer Config
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left grid md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Company Description (Appears bottom left)</label>
-            <textarea rows={2} value={footerConfig.description || ''} onChange={e => handleFooterChange('description', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Footer Email</label>
-            <input type="email" value={footerConfig.contact_email || ''} onChange={e => handleFooterChange('contact_email', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Footer Phone</label>
-            <input type="text" value={footerConfig.contact_phone || ''} onChange={e => handleFooterChange('contact_phone', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">LinkedIn URL</label>
-            <input type="text" value={footerConfig.linkedin_url || ''} onChange={e => handleFooterChange('linkedin_url', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="https://linkedin.com/company/..." />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Facebook URL</label>
-            <input type="text" value={footerConfig.facebook_url || ''} onChange={e => handleFooterChange('facebook_url', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="https://facebook.com/yourpage" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">WhatsApp URL / wa.me</label>
-            <input type="text" value={footerConfig.whatsapp_url || ''} onChange={e => handleFooterChange('whatsapp_url', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="https://wa.me/233..." />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Footer Tagline</label>
-            <input type="text" value={footerConfig.tagline || ''} onChange={e => handleFooterChange('tagline', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Copyright Notice text</label>
-            <input type="text" value={footerConfig.copyright_text || ''} onChange={e => handleFooterChange('copyright_text', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Service Pillars (comma separated)</label>
-            <textarea rows={2} value={footerConfig.service_pillars || ''} onChange={e => handleFooterChange('service_pillars', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Records Digitalisation, Asset Tagging, ISO Implementation, Training" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Target Industries (comma separated)</label>
-            <textarea rows={2} value={footerConfig.target_industries || ''} onChange={e => handleFooterChange('target_industries', e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" placeholder="SMEs,Financial Services,Construction,Public Sector" />
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ─── Trainings Manager View ───
-  const TrainingsManagerView = () => {
-    return (
-      <div className="space-y-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Training Courses Portfolio</h2>
-            <p className="text-xs text-gray-500">Add, edit, or delete core corporate training courses shown as cards.</p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingTraining({
-                title: '',
-                category: 'General',
-                duration: '2 Days',
-                short_summary: '',
-                synopsis: '',
-                image_url: '',
-                sort_order: trainings.length,
-                is_active: true
-              });
-              setShowNewTraining(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all"
-            style={{ backgroundColor: NAVY }}
-          >
-            <Plus size={14} /> Add Training Course
-          </button>
-        </div>
-
-        {(editingTraining || showNewTraining) && (
-          <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-4 text-left">
-            <h3 className="font-bold text-sm text-slate-800 mb-4">
-              {editingTraining.id ? 'Edit Training Course Details' : 'Add New Training Course'}
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Course Title</label>
-                <input 
-                  type="text" 
-                  value={editingTraining.title || ''} 
-                  onChange={e => setEditingTraining({ ...editingTraining, title: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm" 
-                  placeholder="e.g. Advanced Leadership & Change Management"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
-                  <select 
-                    value={editingTraining.category || 'General'} 
-                    onChange={e => setEditingTraining({ ...editingTraining, category: e.target.value })} 
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                  >
-                    {['Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'].map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Duration</label>
-                  <input 
-                    type="text" 
-                    value={editingTraining.duration || '2 Days'} 
-                    onChange={e => setEditingTraining({ ...editingTraining, duration: e.target.value })} 
-                    className="w-full px-3 py-2 rounded-lg border text-sm" 
-                    placeholder="e.g. 3 Days"
-                  />
-                </div>
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Short Preview Summary (Shown on Card)</label>
-                <input 
-                  type="text" 
-                  value={editingTraining.short_summary || ''} 
-                  onChange={e => setEditingTraining({ ...editingTraining, short_summary: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm" 
-                  placeholder="Provide a 1-sentence teaser for the card layout..."
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Full Synopsis & Detailed Outline</label>
-                <textarea 
-                  rows={6} 
-                  value={editingTraining.synopsis || ''} 
-                  onChange={e => setEditingTraining({ ...editingTraining, synopsis: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm font-sans" 
-                  placeholder="Write the full synopsis, details of who this is for, and course outline..."
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <ImageUploadField 
-                  label="Course Cover Image" 
-                  value={editingTraining.image_url || ''} 
-                  onChange={val => setEditingTraining({ ...editingTraining, image_url: val })} 
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 md:col-span-2">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Sort Order</label>
-                  <input 
-                    type="number" 
-                    value={editingTraining.sort_order ?? 0} 
-                    onChange={e => setEditingTraining({ ...editingTraining, sort_order: parseInt(e.target.value) })} 
-                    className="w-full px-3 py-2 rounded-lg border text-sm" 
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <input 
-                    type="checkbox" 
-                    id="training-active"
-                    checked={editingTraining.is_active ?? true} 
-                    onChange={e => setEditingTraining({ ...editingTraining, is_active: e.target.checked })} 
-                    className="rounded"
-                  />
-                  <label htmlFor="training-active" className="text-xs font-semibold text-gray-600">Active / Visible on site</label>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <button 
-                onClick={() => { setEditingTraining(null); setShowNewTraining(false); }} 
-                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => saveTraining(editingTraining)} 
-                className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" 
-                style={{ backgroundColor: NAVY }}
-              >
-                Save Course
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-4 text-left">
-          {trainings.length === 0 ? (
-            <div className="col-span-2 p-8 text-center text-gray-400 bg-white border border-dashed border-gray-250 rounded-xl">
-              No course portfolio items created yet. Click "Add Training Course" above.
-            </div>
-          ) : (
-            trainings.map(item => (
-              <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-150 flex gap-4 hover:shadow-md transition-shadow">
-                <div className="w-24 h-16 rounded overflow-hidden bg-slate-100 flex-shrink-0 border border-gray-100 animate-fade-in">
-                  {item.image_url ? (
-                    <img src={item.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400"><GraduationCap size={20} /></div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">{item.category}</span>
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800" style={{ color: '#8a6b1e', background: `${GOLD}22` }}>{item.duration}</span>
-                    {!item.is_active && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">Inactive</span>}
-                  </div>
-                  <h4 className="font-bold text-slate-800 text-sm truncate">{item.title}</h4>
-                  <p className="text-gray-400 text-xs truncate mt-0.5">{item.short_summary || item.synopsis}</p>
-                </div>
-                <div className="flex flex-col justify-between items-end">
-                  <div className="flex gap-1">
-                    <button 
-                      onClick={() => setEditingTraining(item)} 
-                      className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
-                      title="Edit Course"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => deleteTraining(item.id)} 
-                      className="p-1.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
-                      title="Delete Course"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => toggleTrainingActive(item.id, item.is_active)}
-                    className="text-[10px] font-bold text-slate-500 hover:text-yellow-600 underline"
-                  >
-                    {item.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // ─── Blogs Manager View ───
-  const BlogsManagerView = () => {
-    return (
-      <div className="space-y-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Blogs & Insights Manager</h2>
-            <p className="text-xs text-gray-500">Create, edit, or delete articles and ebooks displayed in the website Blogs section.</p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingBlog({
-                title: '',
-                excerpt: '',
-                content: '',
-                featured_image_url: '',
-                slug: '',
-                is_published: false,
-                sort_order: blogs.length
-              });
-              setShowNewBlog(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:scale-105 transition-all"
-            style={{ backgroundColor: NAVY }}
-          >
-            <Plus size={14} /> Create Blog Post
-          </button>
-        </div>
-
-        {(editingBlog || showNewBlog) && (
-          <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-4 text-left">
-            <h3 className="font-bold text-sm text-slate-800 mb-4">
-              {editingBlog.id ? 'Edit Blog Article Details' : 'Create New Blog Article'}
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Article Title</label>
-                <input 
-                  type="text" 
-                  value={editingBlog.title || ''} 
-                  onChange={e => {
-                    const title = e.target.value;
-                    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    setEditingBlog({ ...editingBlog, title, slug });
-                  }} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm" 
-                  placeholder="e.g. Digitalisation Best Practices for Corporate Governance"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">URL Slug (Auto-generated)</label>
-                <input 
-                  type="text" 
-                  value={editingBlog.slug || ''} 
-                  onChange={e => setEditingBlog({ ...editingBlog, slug: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm" 
-                  placeholder="e.g. digitalisation-best-practices"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Sort Order</label>
-                <input 
-                  type="number" 
-                  value={editingBlog.sort_order ?? 0} 
-                  onChange={e => setEditingBlog({ ...editingBlog, sort_order: parseInt(e.target.value) })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm" 
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Excerpt Preview (Shown on card feed)</label>
-                <textarea 
-                  rows={2} 
-                  value={editingBlog.excerpt || ''} 
-                  onChange={e => setEditingBlog({ ...editingBlog, excerpt: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm" 
-                  placeholder="A short teaser summary of the article..."
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Article Content (Markdown or Plain Text)</label>
-                <textarea 
-                  rows={10} 
-                  value={editingBlog.content || ''} 
-                  onChange={e => setEditingBlog({ ...editingBlog, content: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg border text-sm font-mono" 
-                  placeholder="Write full article body. Separate paragraphs with empty lines. Use ### for subheadings."
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <ImageUploadField 
-                  label="Featured Image" 
-                  value={editingBlog.featured_image_url || ''} 
-                  onChange={val => setEditingBlog({ ...editingBlog, featured_image_url: val })} 
-                />
-              </div>
-
-              <div className="md:col-span-2 flex items-center gap-2 pt-2">
-                <input 
-                  type="checkbox" 
-                  id="blog-published"
-                  checked={editingBlog.is_published ?? false} 
-                  onChange={e => setEditingBlog({ ...editingBlog, is_published: e.target.checked })} 
-                  className="rounded"
-                />
-                <label htmlFor="blog-published" className="text-xs font-semibold text-gray-600">Publish Article (Visible immediately to public)</label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <button 
-                onClick={() => { setEditingBlog(null); setShowNewBlog(false); }} 
-                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => saveBlog(editingBlog)} 
-                className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg" 
-                style={{ backgroundColor: NAVY }}
-              >
-                Save Article
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3 text-left animate-fade-in">
-          {blogs.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 bg-white border border-dashed border-gray-250 rounded-xl">
-              No blog articles created yet. Click "Create Blog Post" above.
-            </div>
-          ) : (
-            blogs.map(item => (
-              <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-150 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div className="w-20 h-14 rounded overflow-hidden bg-slate-100 flex-shrink-0 border border-gray-100">
-                  {item.featured_image_url ? (
-                    <img src={item.featured_image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400"><FileText size={18} /></div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-slate-800 text-sm truncate">{item.title}</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-gray-400">Slug: /{item.slug}</span>
-                    <span className="text-[10px] text-gray-300">•</span>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${item.is_published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {item.is_published ? 'Published' : 'Draft'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <button 
-                    onClick={() => setEditingBlog(item)} 
-                    className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
-                    title="Edit Blog"
-                  >
-                    <Edit3 size={14} />
-                  </button>
-                  <button 
-                    onClick={() => deleteBlog(item.id)} 
-                    className="p-1.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
-                    title="Delete Blog"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                  <button 
-                    onClick={() => toggleBlogPublished(item.id, item.is_published)} 
-                    className="px-2.5 py-1 text-[10px] font-bold border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors ml-2"
-                  >
-                    {item.is_published ? 'Set Draft' : 'Publish'}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // 8. GENERAL SETTINGS TAB (Central Key-Value Fallback)
-  const GeneralSettingsView = () => {
-    const handleFieldChange = (key: string, val: string) => {
-      setEditingSettings(prev => ({ ...prev, [key]: val }));
-    };
-
-    const handleSaveAllGeneral = async () => {
-      const changed: Record<string, string> = {};
-      Object.keys(editingSettings).forEach(k => {
-        if (editingSettings[k] !== originalSettings[k]) {
-          changed[k] = editingSettings[k];
-        }
-      });
-      if (Object.keys(changed).length === 0) {
-        showToast('No changed fields to save');
-        return;
-      }
-      await saveMultipleSettings(changed);
-    };
-
-    return (
-      <div className="space-y-6">
-        {/* Announcement Bar Settings Section */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 text-left">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div>
-              <h3 className="text-base font-bold text-slate-800">Top Announcement Bar</h3>
-              <p className="text-xs text-gray-500">Toggle whether a message ribbon appears at the very top of all pages.</p>
-            </div>
-            <button
-              onClick={() => handleFieldChange('announcement_bar_enabled', editingSettings.announcement_bar_enabled === 'true' ? 'false' : 'true')}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${editingSettings.announcement_bar_enabled === 'true' ? 'bg-[#C9A84C]' : 'bg-gray-200'}`}
-              style={editingSettings.announcement_bar_enabled === 'true' ? { backgroundColor: GOLD } : {}}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${editingSettings.announcement_bar_enabled === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Announcement Text</label>
-              <input 
-                type="text" 
-                value={editingSettings.announcement_bar_text || ''} 
-                onChange={e => handleFieldChange('announcement_bar_text', e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border text-sm" 
-                placeholder="e.g. Click to download our corporate brochure..."
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Announcement Action Link (URL or #hash)</label>
-              <input 
-                type="text" 
-                value={editingSettings.announcement_bar_link || ''} 
-                onChange={e => handleFieldChange('announcement_bar_link', e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg border text-sm" 
-                placeholder="e.g. #contact or https://..."
-              />
-            </div>
-          </div>
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={handleSaveAllGeneral}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#0F2044] text-white font-bold text-xs rounded-xl hover:scale-105 transition-all shadow-md"
-              style={{ backgroundColor: NAVY }}
-            >
-              <Save size={12} /> Save Announcement Settings
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">General Key-Value Store</h2>
-            <p className="text-xs text-gray-500">Edit raw site configuration fallback strings directly.</p>
-          </div>
-          <button
-            onClick={handleSaveAllGeneral}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-yellow-500 text-slate-900 font-bold text-xs rounded-xl hover:scale-105 transition-all shadow-md"
-            style={{ backgroundColor: GOLD, color: NAVY }}
-          >
-            <Save size={14} /> Save Fallback Settings
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 max-h-[400px] overflow-y-auto">
-          {Object.keys(editingSettings).filter(k => !['design_system', 'navigation_menu', 'homepage_modules', 'footer_config', 'course_modules', 'announcement_bar_enabled', 'announcement_bar_text', 'announcement_bar_link'].includes(k)).map(key => (
-            <div key={key} className="text-left">
-              <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">{key.replace(/_/g, ' ')}</label>
-              {key.includes('image') || key.includes('logo') ? (
-                <ImageUploadField label={key.replace(/_/g, ' ')} value={editingSettings[key] || ''} onChange={val => handleFieldChange(key, val)} />
-              ) : key.includes('description') || key.includes('extended') || key.includes('pull_quote') || key.includes('bullets') ? (
-                <textarea rows={3} value={editingSettings[key] || ''} onChange={e => handleFieldChange(key, e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-              ) : (
-                <input type="text" value={editingSettings[key] || ''} onChange={e => handleFieldChange(key, e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+    <div className="flex min-h-screen bg-gray-50 font-sans">
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      {/* Main Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ background: NAVY }}>
-        <div className="p-5 border-b border-white/10">
-          <img src="/newlogo.png" alt="Enka Prime" className="h-10 object-contain" />
-          <div className="text-[10px] mt-2 font-bold text-custom-secondary uppercase tracking-wider" style={{ color: GOLD }}>CMS Admin System</div>
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-gray-100 shadow-xl transition-all duration-300 ${sidebarOpen ? 'w-60' : 'w-16'} overflow-hidden`}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 h-16 flex-shrink-0">
+          {sidebarOpen && <span className="font-bold text-sm" style={{ color: NAVY }}>Enka CMS</span>}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors ml-auto">
+            {sidebarOpen ? <X size={18} className="text-gray-500" /> : <Menu size={18} className="text-gray-500" />}
+          </button>
         </div>
-
-        <nav className="flex-1 py-4 overflow-y-auto">
-          {TAB_CONFIG.map(tab => {
-            const Icon = tab.icon;
+        <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto">
+          {TABS.map(t => {
+            const Icon = t.icon;
+            const active = tab === t.id;
             return (
-              <button
-                key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-5 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === tab.key ? 'text-white' : 'text-blue-300 hover:text-white'}`}
-                style={activeTab === tab.key ? { background: `${GOLD}20`, borderRight: `3px solid ${GOLD}` } : {}}
-              >
-                <Icon size={16} /> {tab.label}
+              <button key={t.id} onClick={() => { setTab(t.id); setSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${active ? 'text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
+                style={active ? { background: NAVY } : {}}>
+                <Icon size={18} className="flex-shrink-0" />
+                {sidebarOpen && <span>{t.label}</span>}
               </button>
             );
           })}
         </nav>
-
-        <div className="p-4 border-t border-white/10 text-left">
-          <div className="text-blue-300 text-xs mb-3 truncate font-medium">{session.user.email}</div>
-          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-red-300 hover:bg-red-950/30 transition-colors">
-            <LogOut size={14} /> Sign Out
+        <div className="p-3 border-t border-gray-100">
+          <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors`}>
+            <LogOut size={18} />
+            {sidebarOpen && 'Sign Out'}
           </button>
         </div>
       </aside>
 
-      {/* Main Body content */}
-      <div className="flex-1 min-h-screen flex flex-col">
-        <header className="bg-white border-b border-gray-150 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-gray-100">
-              <Menu size={20} />
-            </button>
-            <h1 className="text-lg font-bold text-slate-800 uppercase tracking-wide">
-              {TAB_CONFIG.find(t => t.key === activeTab)?.label}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button onClick={loadAllData} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Sync database stats">
-              <RefreshCw size={16} className="text-gray-500" />
-            </button>
-            <button onClick={() => onNavigate('home')} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-100 text-slate-600 border border-gray-200 shadow-sm">
-              <ArrowLeft size={13} /> View Site
-            </button>
-          </div>
+      {/* Main */}
+      <main className="flex-1 ml-16 flex flex-col min-h-screen">
+        <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30">
+          <h1 className="font-bold text-lg" style={{ color: NAVY }}>{TABS.find(t => t.id === tab)?.label}</h1>
+          <button onClick={() => onNavigate('home')}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: NAVY }}>
+            <Eye size={16} /> Preview Site
+          </button>
         </header>
 
-        <main className="p-6 flex-1 max-w-6xl w-full mx-auto">
-          {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'pages' && <PagesView />}
-          {activeTab === 'services' && <ServicesManagerView />}
-          {activeTab === 'programmes' && <ProgrammesView />}
-          {activeTab === 'trainings' && <TrainingsManagerView />}
-          {activeTab === 'blogs' && <BlogsManagerView />}
-          {activeTab === 'design_system' && <DesignSystemView />}
-          {activeTab === 'navigation' && <NavigationManagerView />}
-          {activeTab === 'homepage_builder' && <HomepageBuilderView />}
-          {activeTab === 'footer' && <FooterEditView />}
-          {activeTab === 'settings' && <GeneralSettingsView />}
-        </main>
+        <div className="flex-1 p-6 overflow-y-auto">
+          {tab === 'dashboard' && <DashboardTab services={services} blogs={blogs} trainings={trainings} contacts={contacts} visitors={visitors} setTab={setTab} />}
+          {tab === 'home' && <HomeTab settings={settings} saveSettings={saveSettings} />}
+          {tab === 'about' && <AboutTab settings={settings} saveSettings={saveSettings} />}
+          {tab === 'services' && <ServicesTab services={services} saveServices={saveServices} showToast={showToast} />}
+          {tab === 'trainings' && <TrainingsTab trainings={trainings} saveTrainings={saveTrainings} showToast={showToast} />}
+          {tab === 'blogs' && <BlogsTab blogs={blogs} saveBlogs={saveBlogs} showToast={showToast} />}
+          {tab === 'contact' && <ContactTab settings={settings} saveSettings={saveSettings} contacts={contacts} />}
+          {tab === 'visitors' && <VisitorsTab visitors={visitors} contacts={contacts} />}
+          {tab === 'settings' && <SiteSettingsTab settings={settings} saveSettings={saveSettings} />}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function DashboardTab({ services, blogs, trainings, contacts, visitors, setTab }: any) {
+  const today = visitors.filter((v: any) => v.time?.startsWith(new Date().toISOString().slice(0, 10))).length;
+  const stats = [
+    { label: 'Total Visitors', value: visitors.length, icon: Eye, color: '#3b82f6', tab: 'visitors' },
+    { label: 'Today\'s Visits', value: today, icon: Clock, color: '#10b981', tab: 'visitors' },
+    { label: 'Contact Leads', value: contacts.length, icon: Mail, color: GOLD, tab: 'contact' },
+    { label: 'Published Blogs', value: blogs.filter((b: any) => b.is_published).length, icon: BookOpen, color: '#8b5cf6', tab: 'blogs' },
+  ];
+  return (
+    <div className="space-y-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map(s => {
+          const Icon = s.icon;
+          return (
+            <button key={s.label} onClick={() => setTab(s.tab)}
+              className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all text-left group">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-gray-400 uppercase">{s.label}</span>
+                <Icon size={18} style={{ color: s.color }} />
+              </div>
+              <div className="text-3xl font-extrabold" style={{ color: NAVY }}>{s.value}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid md:grid-cols-3 gap-4">
+        {[
+          { label: 'Active Services', count: services.filter((s: any) => s.is_active).length, tab: 'services', icon: Briefcase },
+          { label: 'Training Courses', count: trainings.filter((t: any) => t.is_active).length, tab: 'trainings', icon: GraduationCap },
+          { label: 'Blog Articles', count: blogs.length, tab: 'blogs', icon: BookOpen },
+        ].map(c => {
+          const Icon = c.icon;
+          return (
+            <button key={c.label} onClick={() => setTab(c.tab)}
+              className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all text-left flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${NAVY}10` }}>
+                <Icon size={22} style={{ color: NAVY }} />
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 font-bold uppercase">{c.label}</div>
+                <div className="text-2xl font-extrabold" style={{ color: NAVY }}>{c.count}</div>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {toast && (
-        <div className={`fixed bottom-6 right-6 flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-xs font-bold z-50 transition-all ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-          {toast.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-          {toast.message.toUpperCase()}
+      {/* Recent contacts */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-base mb-4" style={{ color: NAVY }}>Recent Contact Submissions</h3>
+        {contacts.length === 0
+          ? <p className="text-gray-400 text-sm">No submissions yet.</p>
+          : <div className="space-y-2 max-h-64 overflow-y-auto">
+            {[...contacts].reverse().slice(0, 5).map((c: any) => (
+              <div key={c.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div>
+                  <div className="font-semibold text-sm text-gray-800">{c.name} — <span className="text-gray-500 text-xs">{c.email}</span></div>
+                  <div className="text-xs text-gray-400 mt-0.5">{c.message?.slice(0, 60)}…</div>
+                </div>
+                <div className="text-[10px] text-gray-400 flex-shrink-0 ml-3">{new Date(c.time).toLocaleDateString()}</div>
+              </div>
+            ))}
+          </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ── HOME PAGE TAB ─────────────────────────────────────────────────────────────
+function HomeTab({ settings, saveSettings }: any) {
+  const [form, setForm] = useState({ ...settings });
+  const s = (k: string) => form[k] || '';
+  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  // Parse slides array from settings
+  const getSlides = (): string[] => {
+    try {
+      const parsed = JSON.parse(form.hero_slides || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* ignore */ }
+    return [
+      form.hero_image || '/company1.jpg',
+      'https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    ];
+  };
+
+  const updateSlide = (index: number, value: string) => {
+    const slides = getSlides();
+    slides[index] = value;
+    setForm((f: any) => ({ ...f, hero_slides: JSON.stringify(slides), hero_image: slides[0] }));
+  };
+
+  const slides = getSlides();
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <Section title="Hero Slider Images">
+        <p className="text-xs text-gray-400 -mt-2">All 4 images rotate automatically every 5 seconds. Slide 1 is shown first.</p>
+        <div className="grid grid-cols-2 gap-4">
+          {slides.map((src, i) => (
+            <SlideUpload
+              key={i}
+              label={`Slide ${i + 1}${i === 0 ? ' (First / Main)' : ''}`}
+              value={src}
+              onChange={v => updateSlide(i, v)}
+            />
+          ))}
         </div>
-      )}
+      </Section>
+      <Section title="Hero Text Content">
+        <Field label="Hero Title" value={s('hero_title')} onChange={v => set('hero_title', v)} />
+        <Field label="Badge Text" value={s('hero_badge_text')} onChange={v => set('hero_badge_text', v)} />
+        <Field label="Description" value={s('hero_description')} onChange={v => set('hero_description', v)} multiline rows={3} />
+        <Field label="Rotating Words (comma separated)" value={s('hero_rotator_words')} onChange={v => set('hero_rotator_words', v)} />
+      </Section>
+      <Section title="CTA Banner Section">
+        <ImageUpload label="CTA Background Image" value={s('cta_image')} onChange={v => set('cta_image', v)} />
+        <Field label="CTA Title" value={s('cta_title')} onChange={v => set('cta_title', v)} />
+        <Field label="Highlighted Text" value={s('cta_discipline_highlight')} onChange={v => set('cta_discipline_highlight', v)} />
+        <Field label="CTA Description" value={s('cta_description')} onChange={v => set('cta_description', v)} multiline />
+      </Section>
+      <Section title="About Preview (Homepage)">
+        <ImageUpload label="About Image" value={s('about_image')} onChange={v => set('about_image', v)} />
+        <Field label="About Title" value={s('about_title')} onChange={v => set('about_title', v)} />
+        <Field label="About Subtitle" value={s('about_subtitle')} onChange={v => set('about_subtitle', v)} />
+        <Field label="Description" value={s('about_description')} onChange={v => set('about_description', v)} multiline rows={4} />
+        <Field label="Extended Text" value={s('about_extended')} onChange={v => set('about_extended', v)} multiline rows={3} />
+        <Field label="Bullet Points (comma separated)" value={s('about_bullets')} onChange={v => set('about_bullets', v)} multiline rows={3} />
+        <Field label="Pull Quote" value={s('about_pull_quote')} onChange={v => set('about_pull_quote', v)} multiline />
+      </Section>
+      <SaveBar onSave={() => saveSettings(form)} />
+    </div>
+  );
+}
+
+// ── ABOUT TAB ─────────────────────────────────────────────────────────────────
+function AboutTab({ settings, saveSettings }: any) {
+  const [form, setForm] = useState({ ...settings });
+  const s = (k: string) => form[k] || '';
+  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <Section title="About Page Hero">
+        <ImageUpload label="About Hero Image" value={s('about_hero_image')} onChange={v => set('about_hero_image', v)} />
+        <Field label="Page Title" value={s('about_page_title') || 'About Enka Prime'} onChange={v => set('about_page_title', v)} />
+        <Field label="Subtitle" value={s('about_page_subtitle') || 'Transforming organisations through world-class training.'} onChange={v => set('about_page_subtitle', v)} />
+      </Section>
+      <Section title="Our Story Section">
+        <Field label="Heading" value={s('about_title')} onChange={v => set('about_title', v)} />
+        <Field label="Main Description" value={s('about_description')} onChange={v => set('about_description', v)} multiline rows={5} />
+        <Field label="Extended Description" value={s('about_extended')} onChange={v => set('about_extended', v)} multiline rows={4} />
+        <Field label="Tagline" value={s('about_tagline') || 'Empowering People. Enhancing Performance.'} onChange={v => set('about_tagline', v)} />
+      </Section>
+      <Section title="Mission & Vision">
+        <Field label="Mission Statement" value={s('about_mission') || 'To deliver practical, world-class training that transforms workplace performance.'} onChange={v => set('about_mission', v)} multiline rows={3} />
+        <Field label="Vision Statement" value={s('about_vision') || 'To be the leading organisational improvement firm in West Africa.'} onChange={v => set('about_vision', v)} multiline rows={3} />
+      </Section>
+      <SaveBar onSave={() => saveSettings(form)} />
+    </div>
+  );
+}
+
+// ── SERVICES TAB ──────────────────────────────────────────────────────────────
+function ServicesTab({ services, saveServices, showToast }: any) {
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState<any>({});
+
+  const openEdit = (svc: any) => { setEditing(svc); setForm({ ...svc }); };
+  const openNew = () => { const n = { id: uid(), slug: '', title: '', tagline: '', short_description: '', long_description: '', image_url: '', is_active: true, sort_order: services.length + 1, components: [], pain_points: [], solutions: [], benefits: [] }; setEditing(n); setForm(n); };
+
+  const handleSave = () => {
+    const updated = services.find((s: any) => s.id === form.id)
+      ? services.map((s: any) => s.id === form.id ? form : s)
+      : [...services, form];
+    saveServices(updated);
+    setEditing(null);
+    showToast('Service saved');
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Delete this service?')) return;
+    saveServices(services.filter((s: any) => s.id !== id));
+    showToast('Deleted');
+  };
+
+  const toggleActive = (id: string) => {
+    saveServices(services.map((s: any) => s.id === id ? { ...s, is_active: !s.is_active } : s));
+  };
+
+  if (editing) return (
+    <div className="max-w-2xl space-y-5">
+      <button onClick={() => setEditing(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-800 flex items-center gap-1">← Back to Services</button>
+      <h2 className="text-xl font-bold" style={{ color: NAVY }}>{form.id && services.find((s: any) => s.id === form.id) ? 'Edit Service' : 'New Service'}</h2>
+      <Section title="Service Details">
+        <ImageUpload label="Service Image" value={form.image_url || ''} onChange={v => setForm((f: any) => ({ ...f, image_url: v }))} />
+        <Field label="Title" value={form.title || ''} onChange={v => setForm((f: any) => ({ ...f, title: v }))} />
+        <Field label="Slug (url key)" value={form.slug || ''} onChange={v => setForm((f: any) => ({ ...f, slug: v }))} />
+        <Field label="Tagline" value={form.tagline || ''} onChange={v => setForm((f: any) => ({ ...f, tagline: v }))} />
+        <Field label="Short Description" value={form.short_description || ''} onChange={v => setForm((f: any) => ({ ...f, short_description: v }))} multiline rows={3} />
+        <Field label="Full Description" value={form.long_description || ''} onChange={v => setForm((f: any) => ({ ...f, long_description: v }))} multiline rows={6} />
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={form.is_active} onChange={e => setForm((f: any) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-yellow-500" />
+          Active (visible on site)
+        </label>
+      </Section>
+      <ArrayEditor label="Scope of Service (What We Deliver)" items={form.components || []} onChange={v => setForm((f: any) => ({ ...f, components: v }))} />
+      <ArrayEditor label="Pain Points (What Organisations Struggle With)" items={form.pain_points || []} onChange={v => setForm((f: any) => ({ ...f, pain_points: v }))} />
+      <ArrayEditor label="Our Approach (How Enka Prime Intervenes)" items={form.solutions || []} onChange={v => setForm((f: any) => ({ ...f, solutions: v }))} />
+      <ArrayEditor label="Benefits & Outcomes" items={form.benefits || []} onChange={v => setForm((f: any) => ({ ...f, benefits: v }))} />
+      <div className="flex gap-3">
+        <button onClick={handleSave} className="px-6 py-2.5 rounded-xl text-white font-bold" style={{ background: NAVY }}>Save Service</button>
+        <button onClick={() => setEditing(null)} className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold">Cancel</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold" style={{ color: NAVY }}>Services ({services.length})</h2>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold" style={{ background: NAVY }}>
+          <Plus size={16} /> Add Service
+        </button>
+      </div>
+      {services.map((s: any) => (
+        <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex gap-4 items-center">
+          <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+            {s.image_url && <img src={s.image_url} alt={s.title} className="w-full h-full object-cover" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-gray-800">{s.title}</div>
+            <div className="text-xs text-gray-400 mt-0.5">{s.short_description?.slice(0, 80)}...</div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => toggleActive(s.id)}
+              className={`px-3 py-1 rounded-full text-xs font-bold ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              {s.is_active ? 'Active' : 'Hidden'}
+            </button>
+            <button onClick={() => openEdit(s)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors"><Edit3 size={15} className="text-gray-500" /></button>
+            <button onClick={() => handleDelete(s.id)} className="p-2 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={15} className="text-red-400" /></button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── TRAININGS TAB ─────────────────────────────────────────────────────────────
+function TrainingsTab({ trainings, saveTrainings, showToast }: any) {
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState<any>({});
+
+  const openEdit = (t: any) => { setEditing(t); setForm({ ...t }); };
+  const openNew = () => { const n = { id: uid(), title: '', short_summary: '', synopsis: '', image_url: '', category: 'Leadership', duration: '2 Days', is_active: true, sort_order: trainings.length + 1 }; setEditing(n); setForm(n); };
+
+  const handleSave = () => {
+    const updated = trainings.find((t: any) => t.id === form.id)
+      ? trainings.map((t: any) => t.id === form.id ? form : t)
+      : [...trainings, form];
+    saveTrainings(updated);
+    setEditing(null);
+    showToast('Training saved');
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Delete?')) return;
+    saveTrainings(trainings.filter((t: any) => t.id !== id));
+    showToast('Deleted');
+  };
+
+  const CATS = ['Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'];
+
+  if (editing) return (
+    <div className="max-w-2xl space-y-5">
+      <button onClick={() => setEditing(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-800">← Back to Trainings</button>
+      <h2 className="text-xl font-bold" style={{ color: NAVY }}>Edit Training Course</h2>
+      <Section title="">
+        <ImageUpload label="Course Image" value={form.image_url || ''} onChange={v => setForm((f: any) => ({ ...f, image_url: v }))} />
+        <Field label="Title" value={form.title || ''} onChange={v => setForm((f: any) => ({ ...f, title: v }))} />
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Category</label>
+          <select value={form.category || 'Leadership'} onChange={e => setForm((f: any) => ({ ...f, category: e.target.value }))}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800">
+            {CATS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <Field label="Duration (e.g. 3 Days)" value={form.duration || ''} onChange={v => setForm((f: any) => ({ ...f, duration: v }))} />
+        <Field label="Short Summary" value={form.short_summary || ''} onChange={v => setForm((f: any) => ({ ...f, short_summary: v }))} multiline rows={3} />
+        <Field label="Full Synopsis" value={form.synopsis || ''} onChange={v => setForm((f: any) => ({ ...f, synopsis: v }))} multiline rows={6} />
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={form.is_active} onChange={e => setForm((f: any) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-yellow-500" />
+          Active
+        </label>
+      </Section>
+      <div className="flex gap-3">
+        <button onClick={handleSave} className="px-6 py-2.5 rounded-xl text-white font-bold" style={{ background: NAVY }}>Save</button>
+        <button onClick={() => setEditing(null)} className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold">Cancel</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold" style={{ color: NAVY }}>Training Courses ({trainings.length})</h2>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold" style={{ background: NAVY }}>
+          <Plus size={16} /> Add Course
+        </button>
+      </div>
+      {trainings.map((t: any) => (
+        <div key={t.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex gap-4 items-center">
+          <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+            {t.image_url && <img src={t.image_url} alt={t.title} className="w-full h-full object-cover" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-gray-800">{t.title}</div>
+            <div className="flex gap-2 mt-1">
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-bold">{t.category}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-500 font-bold">{t.duration}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => openEdit(t)} className="p-2 rounded-lg hover:bg-gray-100"><Edit3 size={15} className="text-gray-500" /></button>
+            <button onClick={() => handleDelete(t.id)} className="p-2 rounded-lg hover:bg-red-50"><Trash2 size={15} className="text-red-400" /></button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── BLOGS TAB ─────────────────────────────────────────────────────────────────
+function BlogsTab({ blogs, saveBlogs, showToast }: any) {
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState<any>({});
+
+  const openEdit = (b: any) => { setEditing(b); setForm({ ...b }); };
+  const openNew = () => {
+    const n = { id: uid(), title: '', excerpt: '', content: '', featured_image_url: '', category: 'General', slug: '', is_published: false, published_at: new Date().toISOString(), sort_order: blogs.length + 1 };
+    setEditing(n); setForm(n);
+  };
+
+  const handleSave = () => {
+    if (!form.slug) form.slug = form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const updated = blogs.find((b: any) => b.id === form.id)
+      ? blogs.map((b: any) => b.id === form.id ? form : b)
+      : [...blogs, form];
+    saveBlogs(updated);
+    setEditing(null);
+    showToast('Blog saved');
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Delete?')) return;
+    saveBlogs(blogs.filter((b: any) => b.id !== id));
+    showToast('Deleted');
+  };
+
+  const CATS = ['Training', 'Leadership', 'Compliance', 'Digital', 'Services', 'General'];
+
+  if (editing) return (
+    <div className="max-w-2xl space-y-5">
+      <button onClick={() => setEditing(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-800">← Back to Blogs</button>
+      <h2 className="text-xl font-bold" style={{ color: NAVY }}>Edit Blog Article</h2>
+      <Section title="">
+        <ImageUpload label="Featured Image" value={form.featured_image_url || ''} onChange={v => setForm((f: any) => ({ ...f, featured_image_url: v }))} />
+        <Field label="Title" value={form.title || ''} onChange={v => setForm((f: any) => ({ ...f, title: v }))} />
+        <Field label="URL Slug" value={form.slug || ''} onChange={v => setForm((f: any) => ({ ...f, slug: v }))} />
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Category</label>
+          <select value={form.category || 'General'} onChange={e => setForm((f: any) => ({ ...f, category: e.target.value }))}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800">
+            {CATS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <Field label="Excerpt (short summary)" value={form.excerpt || ''} onChange={v => setForm((f: any) => ({ ...f, excerpt: v }))} multiline rows={3} />
+        <Field label="Full Article Content" value={form.content || ''} onChange={v => setForm((f: any) => ({ ...f, content: v }))} multiline rows={12} />
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={form.is_published} onChange={e => setForm((f: any) => ({ ...f, is_published: e.target.checked }))} className="w-4 h-4 accent-yellow-500" />
+          Published (visible on site)
+        </label>
+      </Section>
+      <div className="flex gap-3">
+        <button onClick={handleSave} className="px-6 py-2.5 rounded-xl text-white font-bold" style={{ background: NAVY }}>Save</button>
+        <button onClick={() => setEditing(null)} className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold">Cancel</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold" style={{ color: NAVY }}>Blog Articles ({blogs.length})</h2>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold" style={{ background: NAVY }}>
+          <Plus size={16} /> New Article
+        </button>
+      </div>
+      {blogs.map((b: any) => (
+        <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex gap-4 items-center">
+          <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+            {b.featured_image_url && <img src={b.featured_image_url} alt={b.title} className="w-full h-full object-cover" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-gray-800">{b.title}</div>
+            <div className="flex gap-2 mt-1">
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-bold">{b.category}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${b.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                {b.is_published ? 'Published' : 'Draft'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => openEdit(b)} className="p-2 rounded-lg hover:bg-gray-100"><Edit3 size={15} className="text-gray-500" /></button>
+            <button onClick={() => handleDelete(b.id)} className="p-2 rounded-lg hover:bg-red-50"><Trash2 size={15} className="text-red-400" /></button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── CONTACT TAB ───────────────────────────────────────────────────────────────
+function ContactTab({ settings, saveSettings, contacts }: any) {
+  const [form, setForm] = useState({ ...settings });
+  const s = (k: string) => form[k] || '';
+  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <Section title="Contact Page Content">
+        <ImageUpload label="Contact Hero Image" value={s('contact_hero_image')} onChange={v => set('contact_hero_image', v)} />
+        <Field label="Page Title" value={s('contact_page_title') || "Let's Start a Conversation"} onChange={v => set('contact_page_title', v)} />
+        <Field label="Page Subtitle" value={s('contact_page_subtitle') || 'Contact us today to discuss your needs.'} onChange={v => set('contact_page_subtitle', v)} />
+        <Field label="Email Address" value={s('contact_email')} onChange={v => set('contact_email', v)} />
+        <Field label="Phone Number" value={s('contact_phone')} onChange={v => set('contact_phone', v)} />
+        <Field label="Location / Address" value={s('contact_location')} onChange={v => set('contact_location', v)} />
+      </Section>
+      <SaveBar onSave={() => saveSettings(form)} />
+
+      {/* Submissions */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-base mb-4" style={{ color: NAVY }}>Contact Form Submissions ({contacts.length})</h3>
+        {contacts.length === 0
+          ? <p className="text-gray-400 text-sm">No submissions yet.</p>
+          : <div className="space-y-3 max-h-96 overflow-y-auto">
+            {[...contacts].reverse().map((c: any) => (
+              <div key={c.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <span className="font-bold text-sm text-gray-800">{c.name}</span>
+                    {c.organization && <span className="text-xs text-gray-500 ml-2">— {c.organization}</span>}
+                  </div>
+                  <span className="text-[10px] text-gray-400">{new Date(c.time).toLocaleString()}</span>
+                </div>
+                <div className="text-xs text-gray-500 mb-1">{c.email} · {c.phone || 'No phone'}</div>
+                <div className="text-sm text-gray-700 leading-relaxed">{c.message}</div>
+              </div>
+            ))}
+          </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ── VISITORS TAB ──────────────────────────────────────────────────────────────
+function VisitorsTab({ visitors, contacts }: any) {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayVisits = visitors.filter((v: any) => v.time?.startsWith(today)).length;
+  const thisWeek = visitors.filter((v: any) => {
+    const d = new Date(v.time); const now = new Date();
+    return (now.getTime() - d.getTime()) < 7 * 24 * 60 * 60 * 1000;
+  }).length;
+
+  const byPage: Record<string, number> = {};
+  visitors.forEach((v: any) => { byPage[v.page || '#home'] = (byPage[v.page || '#home'] || 0) + 1; });
+  const pageStats = Object.entries(byPage).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid sm:grid-cols-3 gap-4">
+        {[
+          { label: 'Total Visits', value: visitors.length, color: '#3b82f6' },
+          { label: 'Today', value: todayVisits, color: '#10b981' },
+          { label: 'This Week', value: thisWeek, color: GOLD },
+        ].map(s => (
+          <div key={s.label} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="text-xs font-bold text-gray-400 uppercase mb-2">{s.label}</div>
+            <div className="text-3xl font-extrabold" style={{ color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-base mb-4" style={{ color: NAVY }}>Top Pages</h3>
+        <div className="space-y-2">
+          {pageStats.slice(0, 10).map(([page, count]) => (
+            <div key={page} className="flex items-center gap-3">
+              <div className="text-sm text-gray-600 flex-1 font-medium">{page}</div>
+              <div className="text-sm font-bold" style={{ color: NAVY }}>{count}</div>
+              <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.round((count / visitors.length) * 100)}%`, background: GOLD }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-base mb-4" style={{ color: NAVY }}>Contact Leads ({contacts.length})</h3>
+        {contacts.length === 0
+          ? <p className="text-gray-400 text-sm">No leads yet.</p>
+          : <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {['Name', 'Email', 'Organisation', 'Date', 'Message'].map(h => (
+                    <th key={h} className="text-left py-2 pr-4 text-xs font-bold text-gray-400 uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...contacts].reverse().map((c: any) => (
+                  <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-2 pr-4 font-semibold text-gray-800">{c.name}</td>
+                    <td className="py-2 pr-4 text-gray-500">{c.email}</td>
+                    <td className="py-2 pr-4 text-gray-500">{c.organization || '—'}</td>
+                    <td className="py-2 pr-4 text-gray-400 text-xs">{new Date(c.time).toLocaleDateString()}</td>
+                    <td className="py-2 text-gray-500 max-w-xs truncate">{c.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ── SITE SETTINGS TAB ─────────────────────────────────────────────────────────
+function SiteSettingsTab({ settings, saveSettings }: any) {
+  const [form, setForm] = useState({ ...settings });
+  const s = (k: string) => form[k] || '';
+  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <Section title="Site Identity">
+        <ImageUpload label="Header Logo" value={s('header_logo')} onChange={v => set('header_logo', v)} />
+        <ImageUpload label="Footer Logo (white)" value={s('footer_logo')} onChange={v => set('footer_logo', v)} />
+        <Field label="Site Title" value={s('site_title') || 'Enka Prime Consulting Ltd'} onChange={v => set('site_title', v)} />
+        <Field label="Site Tagline" value={s('footer_tagline')} onChange={v => set('footer_tagline', v)} />
+      </Section>
+      <Section title="Social Media Links">
+        <Field label="Facebook URL" value={s('facebook_url')} onChange={v => set('facebook_url', v)} />
+        <Field label="LinkedIn URL" value={s('linkedin_url')} onChange={v => set('linkedin_url', v)} />
+        <Field label="WhatsApp URL" value={s('whatsapp_url')} onChange={v => set('whatsapp_url', v)} />
+      </Section>
+      <Section title="Announcement Bar">
+        <Field label="Announcement Text" value={s('announcement_text') || 'June 2026 Training Programmes Now Open — Enroll Today'} onChange={v => set('announcement_text', v)} />
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={s('announcement_bar_enabled') === 'true'} onChange={e => set('announcement_bar_enabled', e.target.checked ? 'true' : 'false')} className="w-4 h-4 accent-yellow-500" />
+          Show Announcement Bar
+        </label>
+      </Section>
+      <SaveBar onSave={() => saveSettings(form)} />
+    </div>
+  );
+}
+
+// ── shared UI helpers ─────────────────────────────────────────────────────────
+function ArrayEditor({ label, items, onChange }: { label: string; items: string[]; onChange: (v: string[]) => void }) {
+  const [newItem, setNewItem] = useState('');
+  const addItem = () => {
+    if (!newItem.trim()) return;
+    onChange([...items, newItem.trim()]);
+    setNewItem('');
+  };
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2">{label}</h4>
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-start gap-2 group">
+            <input
+              type="text"
+              value={item}
+              onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next); }}
+              className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800"
+            />
+            <button onClick={() => onChange(items.filter((_, j) => j !== i))}
+              className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newItem}
+          onChange={e => setNewItem(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addItem()}
+          placeholder="Add new item..."
+          className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800"
+        />
+        <button onClick={addItem} className="px-3 py-1.5 rounded-lg text-white text-sm font-bold flex-shrink-0" style={{ background: NAVY }}>
+          <Plus size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+      {title && <h3 className="font-bold text-sm uppercase tracking-wider text-gray-400 border-b pb-3">{title}</h3>}
+      {children}
+    </div>
+  );
+}
+
+function SaveBar({ onSave }: { onSave: () => void }) {
+  return (
+    <div className="sticky bottom-0 bg-white border-t border-gray-100 -mx-6 px-6 py-4 flex justify-end shadow-lg">
+      <button onClick={onSave} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity" style={{ background: NAVY }}>
+        <Save size={16} /> Save Changes
+      </button>
     </div>
   );
 }

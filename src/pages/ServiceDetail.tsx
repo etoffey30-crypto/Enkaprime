@@ -145,29 +145,29 @@ export default function ServiceDetail({ serviceKey, onNavigate }: ServiceDetailP
 
   const loadServiceData = useCallback(async () => {
     setLoading(true);
+    // Try localStorage (saved by admin) first, then fall back to hardcoded data
     try {
-      const { data: dbData } = await supabase
-        .from('services')
-        .select('*')
-        .eq('slug', serviceKey)
-        .single();
-
-      if (dbData) {
-        setData({
-          title: dbData.title,
-          tagline: dbData.tagline || dbData.long_description,
-          heroImage: dbData.image_url,
-          components: dbData.components || [],
-          painPoints: dbData.pain_points || [],
-          solutions: dbData.solutions || [],
-          benefits: dbData.benefits || [],
-        });
-      } else {
-        setData(SERVICE_DATA[serviceKey] || null);
+      const localServices = localStorage.getItem('local_services');
+      if (localServices) {
+        const parsed = JSON.parse(localServices);
+        const dbData = parsed.find((s: any) => s.slug === serviceKey);
+        if (dbData && (dbData.components?.length || dbData.pain_points?.length)) {
+          setData({
+            title: dbData.title,
+            tagline: dbData.tagline || dbData.long_description,
+            heroImage: dbData.image_url,
+            components: dbData.components || [],
+            painPoints: dbData.pain_points || [],
+            solutions: dbData.solutions || [],
+            benefits: dbData.benefits || [],
+          });
+          setLoading(false);
+          return;
+        }
       }
-    } catch (e) {
-      setData(SERVICE_DATA[serviceKey] || null);
-    }
+    } catch (e) { /* fall through */ }
+    // Always use hardcoded SERVICE_DATA as the reliable fallback
+    setData(SERVICE_DATA[serviceKey] || null);
     setLoading(false);
   }, [serviceKey]);
 
