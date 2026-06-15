@@ -29,9 +29,33 @@ const INDUSTRIES = [
   { icon: Database, title: 'Technology & Telecommunications', desc: 'Data discipline, digital records, process controls, and high-performance operational routines.', image: 'https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg' },
 ];
 
+
+
+// Hero slider images — local first, then Pexels fallbacks
+const DEFAULT_HERO_SLIDES = [
+  '/company1.jpg',
+  'https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1600',
+];
+
 export default function Home({ onNavigate, settings }: HomeProps) {
   const [dbServices, setDbServices] = useState<any[]>([]);
   const [visibleStats, setVisibleStats] = useState<boolean>(false);
+
+  // Slider state — defined at component top level so it never resets
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  // Build slide list from settings (admin-managed) or fall back to defaults
+  const HERO_SLIDES = (() => {
+    try {
+      if (settings.hero_slides) {
+        const parsed = JSON.parse(settings.hero_slides);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(Boolean);
+      }
+    } catch { /* ignore */ }
+    return DEFAULT_HERO_SLIDES;
+  })();
 
   // Read dynamic about preview bullets, split by comma
   const bulletsString = settings.about_bullets || 'Records Digitalisation & Document Management Systems, Asset Tagging and Asset Register Development, ISO Implementation and Audit Support, Training and Capacity Building';
@@ -76,11 +100,31 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   }, [phrases.length]);
 
   const loadData = useCallback(async () => {
-    const servicesRes = await supabase.from('services').select('*').eq('is_active', true).order('sort_order');
-    if (servicesRes.data && servicesRes.data.length > 0) setDbServices(servicesRes.data);
+    // Try localStorage first (populated by AdminCMS local mode)
+    const localServices = localStorage.getItem('local_services');
+    if (localServices) {
+      try {
+        const parsed = JSON.parse(localServices);
+        const active = parsed.filter((s: any) => s.is_active !== false);
+        if (active.length > 0) { setDbServices(active); return; }
+      } catch (e) { /* ignore */ }
+    }
+    // Fall back to Supabase (will return [] in local mode — FALLBACK_SERVICES kicks in via render)
+    try {
+      const servicesRes = await supabase.from('services').select('*').eq('is_active', true).order('sort_order');
+      if (servicesRes.data && servicesRes.data.length > 0) setDbServices(servicesRes.data);
+    } catch (e) { /* ignore — FALLBACK_SERVICES used in render */ }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Auto-advance slider every 5 seconds
+  useEffect(() => {
+    const t = setInterval(() => {
+      setActiveSlide(prev => (prev + 1) % HERO_SLIDES.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -132,44 +176,52 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   // 1. HERO BANNER SECTION
   const renderHero = () => (
     <section key="hero" id="hero" className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-12 lg:pt-16">
+
+      {/* ── SLIDER BACKGROUND: all slides stacked, only active one visible ── */}
       <div className="absolute inset-0">
-        <img
-          src={settings.hero_image || "https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg"}
-          alt="Professional training"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/85 to-blue-900/75" />
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-900/40 via-transparent to-blue-900/60" />
+        {HERO_SLIDES.map((src, i) => (
+          <div
+            key={src}
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${src})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: i === activeSlide ? 1 : 0,
+              transition: 'opacity 1s ease-in-out',
+              zIndex: i === activeSlide ? 1 : 0,
+            }}
+          />
+        ))}
+
+        {/* Dark overlay — sits above all slides */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(15,32,68,0.55) 0%, rgba(15,32,68,0.40) 100%)', zIndex: 2 }} />
 
         {/* Animated particles */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 3 }}>
           {particles.map((p) => (
             <div
               key={p.id}
               className="absolute rounded-full bg-yellow-400/80 animate-float"
               style={{
-                width: `${p.size}px`,
-                height: `${p.size}px`,
-                left: `${p.left}%`,
-                top: `${p.top}%`,
+                width: `${p.size}px`, height: `${p.size}px`,
+                left: `${p.left}%`, top: `${p.top}%`,
                 opacity: p.opacity,
-                animationDelay: `${p.delay}s`,
-                animationDuration: `${p.duration}s`,
-                boxShadow: `0 0 8px rgba(201, 168, 76, 0.6)`,
+                animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`,
+                boxShadow: '0 0 8px rgba(201,168,76,0.6)',
               }}
             />
           ))}
         </div>
 
-        {/* Dynamic Glow Shapes */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-yellow-400/10 rounded-full mix-blend-multiply filter blur-3xl animate-float opacity-40" />
-        <div className="absolute bottom-20 right-10 w-72 h-72 bg-yellow-400/10 rounded-full mix-blend-multiply filter blur-3xl animate-float opacity-40 animate-delay-300" />
+        {/* Glow shapes */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-yellow-400/10 rounded-full filter blur-3xl animate-float opacity-40" style={{ zIndex: 3 }} />
+        <div className="absolute bottom-20 right-10 w-72 h-72 bg-yellow-400/10 rounded-full filter blur-3xl animate-float opacity-40 animate-delay-300" style={{ zIndex: 3 }} />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-32 flex flex-col justify-center min-h-[100svh] w-full animate-fade-in">
+      {/* ── CONTENT ── */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-32 flex flex-col justify-center min-h-[100svh] w-full animate-fade-in" style={{ zIndex: 10 }}>
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center justify-center w-full mt-6 lg:mt-0">
-          
-          {/* Headline & CTAs */}
           <div className="lg:col-span-8 lg:col-start-3 flex flex-col items-center text-center w-full">
             <div
               className="button-custom inline-flex items-center gap-2 px-4 py-2 text-xs font-bold tracking-widest uppercase mb-6 backdrop-blur-md animate-fade-in-down hover:scale-105 hover:bg-yellow-400/20 transition-all duration-300 self-center border border-custom-secondary/40"
@@ -200,9 +252,9 @@ export default function Home({ onNavigate, settings }: HomeProps) {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up w-full sm:w-auto" style={{ animationDelay: '400ms' }}>
               <button
                 onClick={() => onNavigate('programmes')}
-                className="button-custom bg-custom-secondary text-custom-primary group flex items-center justify-center gap-2 px-8 py-4 font-bold text-base tracking-wide transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(201,168,76,0.4)] hover:-translate-y-0.5 relative overflow-hidden w-full sm:w-auto"
+                className="button-custom bg-custom-secondary text-custom-primary group flex items-center justify-center gap-2 px-8 py-4 font-bold text-base tracking-wide transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(201,168,76,0.4)] hover:-translate-y-0.5 w-full sm:w-auto"
               >
-                View Programmes 
+                View Programmes
                 <ArrowRight size={18} className="transition-transform duration-300 group-hover:translate-x-1.5" />
               </button>
               <button
@@ -213,38 +265,72 @@ export default function Home({ onNavigate, settings }: HomeProps) {
               </button>
             </div>
           </div>
-
         </div>
 
-        {/* Stats counter */}
-        <div id="stats-section" className="mt-10 lg:mt-24 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5 w-full">
+        {/* Stats */}
+        <div id="stats-section" className="mt-10 lg:mt-24 flex flex-wrap justify-center items-center gap-3 sm:gap-5 mx-auto w-full max-w-3xl">
           {stats.map((stat, idx) => (
             <div
               key={stat.label}
-              className="group text-center p-4 sm:p-6 rounded-xl sm:rounded-2xl backdrop-blur-sm transition-all duration-500 hover:scale-105 hover:bg-white/12 hover:border-custom-secondary hover:shadow-[0_15px_30px_rgba(0,0,0,0.2)]"
+              className="group text-center p-4 sm:p-6 rounded-xl sm:rounded-2xl backdrop-blur-sm transition-all duration-500 hover:scale-105"
               style={{
                 background: 'rgba(255,255,255,0.08)',
-                border: `1px solid rgba(201,168,76,0.3)`,
-                animation: visibleStats ? `slideInUp 0.6s ease-out ${idx * 100}ms both` : 'none'
+                border: '1px solid rgba(201,168,76,0.3)',
+                animation: visibleStats ? `slideInUp 0.6s ease-out ${idx * 100}ms both` : 'none',
+                minWidth: '160px',
+                flex: '0 1 200px',
               }}
             >
-                  <div className="text-2xl md:text-4xl font-bold mb-1 group-hover:scale-110 transition-transform duration-300 text-custom-secondary">
-                    {stat.value}
-                  </div>
-                  <div className="text-xs sm:text-sm text-blue-200 font-medium group-hover:text-white transition-colors duration-300">
-                    {stat.label}
-                    {stat.small && <div className="text-[10px] mt-1">{stat.small}</div>}
-                  </div>
+              <div className="text-2xl md:text-4xl font-bold mb-1 group-hover:scale-110 transition-transform duration-300 text-custom-secondary">{stat.value}</div>
+              <div className="text-xs sm:text-sm text-blue-200 font-medium group-hover:text-white transition-colors duration-300">
+                {stat.label}
+                {stat.small && <div className="text-[10px] mt-1">{stat.small}</div>}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="hidden sm:flex absolute bottom-8 left-1/2 -translate-x-1/2 flex-col items-center gap-2 opacity-50 hover:opacity-100 transition-opacity duration-300 cursor-pointer z-10"
-           onClick={() => {
-             const nextSection = document.getElementById('hero')?.nextElementSibling;
-             nextSection?.scrollIntoView({ behavior: 'smooth' });
-           }}>
+      {/* ── SLIDER DOTS ── */}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2" style={{ zIndex: 20 }}>
+        {HERO_SLIDES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setActiveSlide(i)}
+            aria-label={`Slide ${i + 1}`}
+            style={{
+              width: i === activeSlide ? '28px' : '8px',
+              height: '8px',
+              borderRadius: '9999px',
+              background: i === activeSlide ? '#C9A84C' : 'rgba(255,255,255,0.5)',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              padding: 0,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* ── PREV / NEXT ARROWS ── */}
+      <button
+        onClick={() => setActiveSlide(i => (i - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+        aria-label="Previous slide"
+        style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <ChevronRight size={18} style={{ transform: 'rotate(180deg)' }} />
+      </button>
+      <button
+        onClick={() => setActiveSlide(i => (i + 1) % HERO_SLIDES.length)}
+        aria-label="Next slide"
+        style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <ChevronRight size={18} />
+      </button>
+
+      {/* Scroll down */}
+      <div className="hidden sm:flex absolute bottom-8 left-1/2 -translate-x-1/2 flex-col items-center gap-2 opacity-50 hover:opacity-100 transition-opacity duration-300 cursor-pointer" style={{ zIndex: 20 }}
+        onClick={() => document.getElementById('hero')?.nextElementSibling?.scrollIntoView({ behavior: 'smooth' })}>
         <div className="w-6 h-10 border-2 border-white/60 rounded-full flex justify-center p-1">
           <div className="w-1 h-2 bg-custom-secondary rounded-full animate-bounce" />
         </div>
@@ -262,7 +348,7 @@ export default function Home({ onNavigate, settings }: HomeProps) {
           alt="Team collaboration"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-custom-primary/90" />
+        <div className="absolute inset-0" style={{ background: 'rgba(15,32,68,0.88)' }} />
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10 animate-fade-in">

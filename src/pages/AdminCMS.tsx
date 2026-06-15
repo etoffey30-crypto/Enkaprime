@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { uploadImageToStorage } from '../lib/storage';
+import { uploadAndCreateMedia } from '../lib/media';
 import { Menu, LogOut, Settings, Image as ImageIcon, LayoutGrid as Layout, FileText, Users, BarChart3, Save, Plus, Trash2, CreditCard as Edit3, ArrowLeft, RefreshCw, CheckCircle, AlertCircle, Palette, BookOpen, GraduationCap } from 'lucide-react';
+import MediaLibrary from '../components/MediaLibrary';
+import MediaPicker from '../components/MediaPicker';
 
 const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
@@ -140,6 +144,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Data states
   const [heroes, setHeroes] = useState<any[]>([]);
@@ -233,14 +238,16 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (session) setSession(session);
+      else if (previewMode) setSession({ preview: true });
+      setLoading(false);
+    }).catch(() => { if (previewMode) setSession({ preview: true }); setLoading(false); });
+    const sub = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) setSession(session);
+      else if (previewMode) setSession({ preview: true });
       setLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
-    });
-    return () => subscription.unsubscribe();
+    return () => { try { sub.data.subscription.unsubscribe(); } catch (e) { /* ignore */ } };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -268,73 +275,80 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
 
 
   const loadAllData = useCallback(async () => {
-    if (!session) return;
-
-    if (isMockMode) {
-      // Load trainings from localStorage
-      const localTrainings = localStorage.getItem('local_trainings');
-      let trainingsList = FALLBACK_TRAININGS;
-      if (localTrainings) {
-        trainingsList = JSON.parse(localTrainings);
-      } else {
-        localStorage.setItem('local_trainings', JSON.stringify(FALLBACK_TRAININGS));
+    const loadLocal = (key: string, fallback: any = []) => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        // ignore
       }
-      setTrainings(trainingsList);
+      return typeof fallback === 'function' ? fallback() : fallback;
+    };
 
-      // Load blogs from localStorage
-      const localBlogs = localStorage.getItem('local_blogs');
-      let blogsList = FALLBACK_BLOGS;
-      if (localBlogs) {
-        blogsList = JSON.parse(localBlogs);
-      } else {
-        localStorage.setItem('local_blogs', JSON.stringify(FALLBACK_BLOGS));
-      }
-      setBlogs(blogsList);
+    // If in mock mode or no session / preview, load from localStorage with sensible fallbacks
+    if (isMockMode || !session || (session as any).preview) {
+      const localTrainings = loadLocal('local_trainings', FALLBACK_TRAININGS);
+      const localBlogs = loadLocal('local_blogs', FALLBACK_BLOGS);
+      const localMedia = loadLocal('local_media', DEFAULT_MEDIA);
+      const localHeroes = loadLocal('local_heroes', []);
+      const localBlocks = loadLocal('local_content_blocks', []);
+      const localTeam = loadLocal('local_team_members', []);
+      const localSettings = loadLocal('local_settings', []);
 
-      // Load site settings from localStorage
-      const localSettings = localStorage.getItem('local_settings');
-      let settingsList = [
-        { key: 'announcement_bar_enabled', value: 'true' },
-        { key: 'announcement_bar_text', value: 'Click here to download our corporate capability brochure.' },
-        { key: 'announcement_bar_link', value: '#contact' }
-      ];
-      if (localSettings) {
-        settingsList = JSON.parse(localSettings);
-      } else {
-        localStorage.setItem('local_settings', JSON.stringify(settingsList));
-      }
-      setSiteSettings(settingsList);
+      // ensure defaults are seeded in localStorage
+      if (!localStorage.getItem('local_media')) localStorage.setItem('local_media', JSON.stringify(DEFAULT_MEDIA));
+      if (!localStorage.getItem('local_trainings')) localStorage.setItem('local_trainings', JSON.stringify(FALLBACK_TRAININGS));
+      if (!localStorage.getItem('local_blogs')) localStorage.setItem('local_blogs', JSON.stringify(FALLBACK_BLOGS));
+      if (!localStorage.getItem('local_settings')) localStorage.setItem('local_settings', JSON.stringify(localSettings));
 
-      const localMedia = localStorage.getItem('local_media');
-      const mediaList = localMedia ? JSON.parse(localMedia) : DEFAULT_MEDIA;
-      if (!localMedia) localStorage.setItem('local_media', JSON.stringify(DEFAULT_MEDIA));
-      
-      setHeroes([]);
-      setMedia(mergeMedia(mediaList));
-      setContentBlocks([]);
-      setTeam([]);
+      setHeroes(localHeroes);
+      setMedia(mergeMedia(localMedia));
+      setContentBlocks(localBlocks);
+      setTeam(localTeam);
+      setTrainings(localTrainings);
+      setBlogs(localBlogs);
+      setSiteSettings(localSettings);
       return;
     }
 
-    const [
-      heroRes, mediaRes, blocksRes, teamRes, trainingsRes, blogsRes, settingsRes
-    ] = await Promise.all([
-      supabase.from('hero_banners').select('*').order('page_name'),
-      supabase.from('media_library').select('*').order('category, name'),
-      supabase.from('content_blocks').select('*').order('sort_order'),
-      supabase.from('team_members').select('*').order('sort_order'),
-      supabase.from('trainings').select('*').order('sort_order'),
-      supabase.from('blogs').select('*').order('sort_order'),
-      supabase.from('site_settings').select('*')
-    ]);
+    try {
+      const [
+        heroRes, mediaRes, blocksRes, teamRes, trainingsRes, blogsRes, settingsRes
+      ] = await Promise.all([
+        supabase.from('hero_banners').select('*').order('page_name'),
+        supabase.from('media_library').select('*').order('category, name'),
+        supabase.from('content_blocks').select('*').order('sort_order'),
+        supabase.from('team_members').select('*').order('sort_order'),
+        supabase.from('trainings').select('*').order('sort_order'),
+        supabase.from('blogs').select('*').order('sort_order'),
+        supabase.from('site_settings').select('*')
+      ]);
 
-    if (heroRes.data) setHeroes(heroRes.data);
-    setMedia(mergeMedia(mediaRes.data || []));
-    if (blocksRes.data) setContentBlocks(blocksRes.data);
-    if (teamRes.data) setTeam(teamRes.data);
-    if (trainingsRes.data) setTrainings(trainingsRes.data);
-    if (blogsRes.data) setBlogs(blogsRes.data);
-    if (settingsRes.data) setSiteSettings(settingsRes.data);
+      if (heroRes.data) setHeroes(heroRes.data);
+      setMedia(mergeMedia(mediaRes.data || []));
+      if (blocksRes.data) setContentBlocks(blocksRes.data || []);
+      if (teamRes.data) setTeam(teamRes.data || []);
+      if (trainingsRes.data) setTrainings(trainingsRes.data || []);
+      if (blogsRes.data) setBlogs(blogsRes.data || []);
+      if (settingsRes.data) setSiteSettings(settingsRes.data || []);
+    } catch (e) {
+      // fallback to localStorage on any DB error
+      const localTrainings = loadLocal('local_trainings', FALLBACK_TRAININGS);
+      const localBlogs = loadLocal('local_blogs', FALLBACK_BLOGS);
+      const localMedia = loadLocal('local_media', DEFAULT_MEDIA);
+      const localHeroes = loadLocal('local_heroes', []);
+      const localBlocks = loadLocal('local_content_blocks', []);
+      const localTeam = loadLocal('local_team_members', []);
+      const localSettings = loadLocal('local_settings', []);
+
+      setHeroes(localHeroes);
+      setMedia(mergeMedia(localMedia));
+      setContentBlocks(localBlocks);
+      setTeam(localTeam);
+      setTrainings(localTrainings);
+      setBlogs(localBlogs);
+      setSiteSettings(localSettings);
+    }
   }, [session, isMockMode]);
 
   useEffect(() => {
@@ -344,6 +358,32 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
   }, [isMockMode, session]);
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
+
+  const settingsMap = siteSettings.reduce((acc: Record<string, string>, item: any) => {
+    acc[item.key] = typeof item.value === 'string' ? item.value : JSON.stringify(item.value);
+    return acc;
+  }, {});
+
+  const saveSettingItems = async (items: { key: string; value: string }[]) => {
+    if (isMockMode) {
+      const updatedSettings = [...siteSettings];
+      items.forEach(item => {
+        const index = updatedSettings.findIndex((s: any) => s.key === item.key);
+        if (index >= 0) updatedSettings[index] = { ...updatedSettings[index], value: item.value };
+        else updatedSettings.push(item);
+      });
+      localStorage.setItem('local_settings', JSON.stringify(updatedSettings));
+      setSiteSettings(updatedSettings);
+      return;
+    }
+
+    for (const item of items) {
+      const existing = siteSettings.find((s: any) => s.key === item.key);
+      if (existing) await supabase.from('site_settings').update({ value: item.value }).eq('id', existing.id);
+      else await supabase.from('site_settings').insert(item);
+    }
+    await loadAllData();
+  };
 
 
   if (loading) {
@@ -432,15 +472,121 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
 
   // Hero Editor
   const HeroEditor = () => {
+    const [showMediaPicker, setShowMediaPicker] = useState(false);
+    const [mediaTarget, setMediaTarget] = useState<'desktop' | 'mobile'>('desktop');
+
+    const applyMediaToHero = (item: any, target: 'desktop' | 'mobile') => {
+      if (!editForm) return;
+      if (target === 'desktop') setEditForm({ ...editForm, image_url: item.image_url });
+      else setEditForm({ ...editForm, mobile_image_url: item.image_url });
+      setShowMediaPicker(false);
+      showToast('Applied media to hero');
+    };
+    const hexToRgba = (hex: string, alpha = 1) => {
+      if (!hex) return `rgba(0,0,0,${alpha})`;
+      const cleaned = hex.replace('#', '');
+      const bigint = parseInt(cleaned.length === 3 ? cleaned.split('').map(c => c + c).join('') : cleaned, 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
     const [heroes, setHeroes] = useState<any[]>([]);
     const [editForm, setEditForm] = useState<any>(null);
 
+    const fallbackHeroes = [
+      {
+        id: 'settings-home',
+        page_name: 'home',
+        title: settingsMap.hero_title || 'Advisory, Systems Improvement & Capacity Building Solutions',
+        subtitle: settingsMap.hero_badge_text || 'Professional Advisory • Systems Improvement • Compliance Support',
+        description: settingsMap.hero_description || 'Enka Prime Consulting Ltd helps organisations improve operational efficiency, compliance, information management, asset accountability and workforce capability through practical consulting, digital transformation and professional training solutions.',
+        image_url: settingsMap.hero_image || 'https://images.pexels.com/photos/3182812/pexels-photo-3182812.jpeg',
+        cta_text: 'View Programmes',
+        cta_link: 'programmes',
+        is_active: true,
+      },
+      {
+        id: 'settings-about',
+        page_name: 'about',
+        title: settingsMap.about_title || 'About Enka Prime',
+        subtitle: 'About Us',
+        description: settingsMap.about_description || 'Enka Prime Consulting Ltd is a professional services and organisational improvement firm.',
+        image_url: settingsMap.about_hero_image || settingsMap.about_image || 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg',
+        cta_text: 'Learn More',
+        cta_link: 'about',
+        is_active: true,
+      },
+      {
+        id: 'settings-training',
+        page_name: 'training',
+        title: 'Training & Capacity Building',
+        subtitle: 'Upcoming Training',
+        description: 'Bespoke in-house corporate training programmes delivered at your premises.',
+        image_url: settingsMap.training_hero_image || 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg',
+        cta_text: 'View Training',
+        cta_link: 'training',
+        is_active: true,
+      },
+      {
+        id: 'settings-contact',
+        page_name: 'contact',
+        title: "Let's Start a Conversation",
+        subtitle: 'Contact',
+        description: 'Contact us today to discuss your training and consulting needs.',
+        image_url: settingsMap.contact_hero_image || 'https://images.pexels.com/photos/3808517/pexels-photo-3808517.jpeg',
+        cta_text: 'Contact Us',
+        cta_link: 'contact',
+        is_active: true,
+      },
+    ];
+
     useEffect(() => {
-      supabase.from('hero_banners').select('*').then(({ data }) => data && setHeroes(data));
-    }, []);
+      if (isMockMode) {
+        const local = localStorage.getItem('local_heroes');
+        setHeroes(local ? JSON.parse(local) : fallbackHeroes);
+      } else {
+        supabase.from('hero_banners').select('*').then(({ data }) => {
+          setHeroes(data && data.length > 0 ? data : fallbackHeroes);
+        });
+      }
+    }, [isMockMode, siteSettings.length]);
 
     const saveHero = async (hero: any) => {
-      if (hero.id) {
+      if (String(hero.id || '').startsWith('settings-')) {
+        const page = hero.page_name;
+        const items = page === 'home'
+          ? [
+              { key: 'hero_title', value: hero.title || '' },
+              { key: 'hero_badge_text', value: hero.subtitle || '' },
+              { key: 'hero_description', value: hero.description || '' },
+              { key: 'hero_image', value: hero.image_url || '' },
+              { key: 'hero_mobile_image', value: hero.mobile_image_url || '' },
+              { key: 'hero_overlay_color', value: hero.overlay_color || '' },
+              { key: 'hero_gradient_end_color', value: hero.gradient_end_color || '' },
+              { key: 'hero_overlay_opacity', value: String(hero.overlay_opacity ?? '') },
+              { key: 'hero_gradient_angle', value: String(hero.gradient_angle ?? '') },
+              { key: 'hero_button_style', value: hero.button_style || '' },
+            ]
+          : [
+              { key: `${page}_hero_image`, value: hero.image_url || '' },
+              { key: `${page}_hero_title`, value: hero.title || '' },
+              { key: `${page}_hero_description`, value: hero.description || '' },
+              { key: `${page}_hero_mobile_image`, value: hero.mobile_image_url || '' },
+              { key: `${page}_hero_overlay_color`, value: hero.overlay_color || '' },
+              { key: `${page}_hero_gradient_end_color`, value: hero.gradient_end_color || '' },
+              { key: `${page}_hero_overlay_opacity`, value: String(hero.overlay_opacity ?? '') },
+              { key: `${page}_hero_gradient_angle`, value: String(hero.gradient_angle ?? '') },
+              { key: `${page}_hero_button_style`, value: hero.button_style || '' },
+            ];
+        await saveSettingItems(items);
+      } else if (isMockMode) {
+        const local = heroes.some(item => item.id === hero.id)
+          ? heroes.map(item => item.id === hero.id ? hero : item)
+          : [...heroes, { ...hero, id: 'hero-' + Math.random().toString(36).slice(2, 9) }];
+        localStorage.setItem('local_heroes', JSON.stringify(local));
+        setHeroes(local);
+      } else if (hero.id) {
         await supabase.from('hero_banners').update({ ...hero, updated_at: new Date().toISOString() }).eq('id', hero.id);
       } else {
         await supabase.from('hero_banners').insert(hero);
@@ -452,6 +598,17 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
 
     const deleteHero = async (id: string) => {
       if (!confirm('Delete this hero banner?')) return;
+      if (String(id).startsWith('settings-')) {
+        showToast('Built-in page heroes cannot be deleted. You can edit their text and image instead.', 'error');
+        return;
+      }
+      if (isMockMode) {
+        const local = heroes.filter(hero => hero.id !== id);
+        localStorage.setItem('local_heroes', JSON.stringify(local));
+        setHeroes(local);
+        showToast('Hero banner deleted');
+        return;
+      }
       await supabase.from('hero_banners').delete().eq('id', id);
       await loadAllData();
       showToast('Hero banner deleted');
@@ -471,37 +628,147 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
         </div>
 
         {editForm && (
-          <div className="bg-yellow-50 p-6 rounded-xl border-2 border-yellow-200 mb-6">
-            <h3 className="font-bold mb-4" style={{ color: NAVY }}>Edit Hero Banner</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <input placeholder="Page Name" value={editForm.page_name || ''} onChange={e => setEditForm({ ...editForm, page_name: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <input placeholder="Title" value={editForm.title || ''} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <input placeholder="Subtitle" value={editForm.subtitle || ''} onChange={e => setEditForm({ ...editForm, subtitle: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <input placeholder="Image URL" value={editForm.image_url || ''} onChange={e => setEditForm({ ...editForm, image_url: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <textarea placeholder="Description" rows={3} value={editForm.description || ''} onChange={e => setEditForm({ ...editForm, description: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
-              <input placeholder="CTA Text" value={editForm.cta_text || ''} onChange={e => setEditForm({ ...editForm, cta_text: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <input placeholder="CTA Link" value={editForm.cta_link || ''} onChange={e => setEditForm({ ...editForm, cta_link: e.target.value })} className="px-4 py-2 rounded-lg border" />
+          <div className="mb-6">
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Main Preview — Left side, takes up 2 columns */}
+              <div className="lg:col-span-2">
+                <div className="rounded-xl overflow-hidden shadow-lg" style={{ height: 450, position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    backgroundImage: `url(${editForm.image_url || ''})`,
+                    backgroundSize: 'cover', backgroundPosition: 'center', filter: 'brightness(0.85)'
+                  }} />
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: `linear-gradient(${editForm.gradient_angle ?? 135}deg, ${hexToRgba(editForm.overlay_color || NAVY, editForm.overlay_opacity ?? 0.9)}, ${hexToRgba(editForm.gradient_end_color || GOLD, (editForm.overlay_opacity ?? 0.9) - 0.15)})`
+                  }} />
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: `radial-gradient(circle at 10% 10%, rgba(255,255,255,0.02), transparent 10%), radial-gradient(circle at 90% 90%, rgba(0,0,0,0.12), transparent 40%)` }} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'pointer' }}>
+                    <div style={{ maxWidth: 900, textAlign: 'center', color: editForm.text_color || '#FFFFFF', width: '100%' }}>
+                      <input
+                        value={editForm.title || ''}
+                        onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                        style={{ fontSize: 36, fontWeight: 800, marginBottom: 8, background: 'transparent', border: 'none', color: editForm.text_color || '#FFFFFF', textAlign: 'center', width: '100%' }}
+                        className="font-bold placeholder-white/50"
+                        placeholder="Banner title"
+                        onClick={e => e.stopPropagation()}
+                      />
+                      {editForm.subtitle && (
+                        <input
+                          value={editForm.subtitle || ''}
+                          onChange={e => setEditForm({ ...editForm, subtitle: e.target.value })}
+                          style={{ fontSize: 16, opacity: 0.95, marginBottom: 12, background: 'transparent', border: 'none', color: editForm.text_color || '#FFFFFF', textAlign: 'center', width: '100%' }}
+                          className="placeholder-white/50"
+                          placeholder="Subtitle"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      )}
+                      {editForm.description && (
+                        <textarea
+                          value={editForm.description || ''}
+                          onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                          style={{ fontSize: 14, opacity: 0.95, marginBottom: 16, background: 'transparent', border: 'none', color: editForm.text_color || '#FFFFFF', textAlign: 'center', width: '100%', minHeight: 60, resize: 'none' }}
+                          className="placeholder-white/50"
+                          placeholder="Description"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      )}
+                      {editForm.cta_text && (
+                        <input
+                          value={editForm.cta_text || ''}
+                          onChange={e => setEditForm({ ...editForm, cta_text: e.target.value })}
+                          style={{ padding: '10px 22px', borderRadius: 8, border: editForm.button_style === 'outline' ? '2px solid rgba(255,255,255,0.9)' : 'none', background: editForm.button_style === 'primary' ? GOLD : 'transparent', color: editForm.button_style === 'primary' ? NAVY : '#fff', fontWeight: 700, cursor: 'pointer' }}
+                          className="placeholder-white/50"
+                          placeholder="Button text"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">💡 Click any text on the banner to edit it.</p>
+              </div>
+
+              {/* Right Sidebar — Controls */}
+              <div className="lg:col-span-1 space-y-4">
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                  <label className="block text-sm font-bold mb-3" style={{ color: NAVY }}>Background Image</label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 px-3 py-2 bg-white border rounded cursor-pointer text-sm font-medium hover:bg-gray-50">
+                      📁 Upload
+                      <input type="file" accept="image/*" onChange={e => {
+                        const f = e.target.files?.[0]; if (f) {
+                          (async () => {
+                            try {
+                              if (!isMockMode) {
+                                const mediaItem = await uploadAndCreateMedia(f, session?.user?.email || 'admin', 'Hero');
+                                setEditForm(prev => ({ ...prev, image_url: mediaItem.file_url || mediaItem.image_url }));
+                                await loadAllData();
+                                showToast('Image uploaded.');
+                              } else {
+                                const data = await convertImageFileToDataUrl(f);
+                                setEditForm(prev => ({ ...prev, image_url: data }));
+                              }
+                            } catch (err: any) { showToast(err.message || 'Upload failed', 'error'); }
+                          })();
+                        }
+                      }} className="hidden" />
+                    </label>
+                    <button onClick={() => { setMediaTarget('desktop'); setShowMediaPicker(true); }} className="px-3 py-2 rounded bg-white border text-sm font-medium hover:bg-gray-50">📚 Choose</button>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                  <label className="block text-sm font-bold mb-2" style={{ color: NAVY }}>Overlay Color</label>
+                  <input type="color" value={editForm.overlay_color || '#0F2044'} onChange={e => setEditForm({ ...editForm, overlay_color: e.target.value })} className="w-full h-10 p-1 border rounded cursor-pointer" />
+                </div>
+
+                <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                  <label className="block text-sm font-bold mb-2" style={{ color: NAVY }}>Gradient Color</label>
+                  <input type="color" value={editForm.gradient_end_color || '#C9A84C'} onChange={e => setEditForm({ ...editForm, gradient_end_color: e.target.value })} className="w-full h-10 p-1 border rounded cursor-pointer" />
+                </div>
+
+                <div className="bg-gray-100 p-4 rounded-xl border border-gray-200">
+                  <label className="block text-xs font-bold mb-2">Opacity</label>
+                  <input type="range" min="0" max="1" step="0.05" value={editForm.overlay_opacity ?? 0.85} onChange={e => setEditForm({ ...editForm, overlay_opacity: Number(e.target.value) })} className="w-full" />
+                </div>
+
+                <div className="bg-gray-100 p-4 rounded-xl border border-gray-200">
+                  <label className="block text-xs font-bold mb-2">Button Style</label>
+                  <select value={editForm.button_style || 'primary'} onChange={e => setEditForm({ ...editForm, button_style: e.target.value })} className="w-full px-3 py-2 rounded border text-sm">
+                    <option value="primary">Primary (Gold)</option>
+                    <option value="outline">Outline</option>
+                    <option value="ghost">Ghost</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setEditForm(null)} className="flex-1 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                  <button onClick={() => saveHero(editForm)} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-bold rounded-lg text-white" style={{ background: NAVY }}>
+                    <Save size={14} /> Save
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setEditForm(null)} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800">Cancel</button>
-              <button onClick={() => saveHero(editForm)} className="flex items-center gap-1 px-4 py-2 text-sm font-bold rounded-lg text-white" style={{ background: NAVY }}>
-                <Save size={14} /> Save
-              </button>
-            </div>
+
+            {/* Media picker modal */}
+            <MediaPicker open={showMediaPicker} onClose={() => setShowMediaPicker(false)} onSelect={(m: any) => applyMediaToHero(m, mediaTarget)} />
           </div>
         )}
 
         <div className="space-y-3">
           {heroes.map(hero => (
-            <div key={hero.id} className="bg-white p-5 rounded-xl border border-gray-100 flex items-center gap-4">
+            <div key={hero.id} className="bg-white p-5 rounded-xl border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
               {hero.image_url && <img src={hero.image_url} alt={hero.title} className="w-20 h-14 rounded object-cover" />}
               <div className="flex-1">
-                <div className="font-bold" style={{ color: NAVY }}>{hero.page_name}</div>
+                <div className="font-bold text-lg" style={{ color: NAVY }}>{hero.page_name}</div>
                 <p className="text-sm text-gray-500">{hero.title}</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setEditForm(hero)} className="p-2 hover:bg-gray-100 rounded"><Edit3 size={16} style={{ color: GOLD }} /></button>
-                <button onClick={() => deleteHero(hero.id)} className="p-2 hover:bg-red-50 rounded"><Trash2 size={16} className="text-red-500" /></button>
+              <div className="flex gap-3">
+                <button onClick={() => setEditForm(hero)} className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all hover:scale-105" style={{ background: GOLD, color: NAVY }}>
+                  <Edit3 size={18} /> Edit
+                </button>
+                <button onClick={() => deleteHero(hero.id)} className="p-2.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} className="text-red-500" /></button>
               </div>
             </div>
           ))}
@@ -556,9 +823,16 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     const handleTrainingImageUpload = async (file: File | undefined) => {
       if (!file) return;
       try {
-        const imageUrl = await convertImageFileToDataUrl(file);
-        setEditForm((prev: any) => ({ ...prev, image_url: imageUrl }));
-        showToast('Image uploaded. Click Save to keep this training.');
+        if (!isMockMode) {
+          const mediaItem = await uploadAndCreateMedia(file, session?.user?.email || 'admin', 'Training');
+          setEditForm((prev: any) => ({ ...prev, image_url: mediaItem.file_url || mediaItem.image_url }));
+          await loadAllData();
+          showToast('Image uploaded to Media Library. Click Save to keep this training.');
+        } else {
+          const imageUrl = await convertImageFileToDataUrl(file);
+          setEditForm((prev: any) => ({ ...prev, image_url: imageUrl }));
+          showToast('Image uploaded. Click Save to keep this training.');
+        }
       } catch (e: any) {
         showToast(e.message || 'Image upload failed', 'error');
       }
@@ -635,7 +909,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
               <textarea placeholder="Synopsis" rows={4} value={editForm.synopsis || ''} onChange={e => setEditForm({ ...editForm, synopsis: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
               <input placeholder="Category" value={editForm.category || ''} onChange={e => setEditForm({ ...editForm, category: e.target.value })} className="px-4 py-2 rounded-lg border" />
               <input placeholder="Duration" value={editForm.duration || ''} onChange={e => setEditForm({ ...editForm, duration: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <input placeholder="Image URL" value={editForm.image_url || ''} onChange={e => setEditForm({ ...editForm, image_url: e.target.value })} className="px-4 py-2 rounded-lg border" />
+              {/* Image URL removed — uploads and Media Library selection only */}
               <button type="button" onClick={() => setSelectingImageFor('training')} className="px-4 py-2 rounded-lg bg-gray-100">Choose from Media Library</button>
               <label className="col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-yellow-300 bg-white/70 px-4 py-3 text-sm">
                 <span className="font-semibold" style={{ color: NAVY }}>Upload image from computer</span>
@@ -689,24 +963,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
           ))}
         </div>
 
-        {/* Media picker modal */}
-        {selectingImageFor && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-            <div className="bg-white rounded-xl p-6 max-w-3xl w-full">
-              <h3 className="font-bold mb-4">Choose Image</h3>
-              <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto">
-                {media.map(m => (
-                  <button key={m.id} onClick={() => { setEditForm({ ...editForm, image_url: m.image_url }); setSelectingImageFor(null); }} className="overflow-hidden rounded-lg">
-                    <img src={m.image_url} alt={m.name} className="w-full h-28 object-cover" />
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-end mt-4">
-                <button onClick={() => setSelectingImageFor(null)} className="px-4 py-2 rounded-lg">Close</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <MediaPicker open={!!selectingImageFor} onClose={() => setSelectingImageFor(null)} onSelect={(m: any) => { setEditForm({ ...editForm, image_url: m.file_url || m.image_url }); setSelectingImageFor(null); }} />
       </div>
     );
   };
@@ -720,9 +977,16 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     const handleBlogImageUpload = async (file: File | undefined) => {
       if (!file) return;
       try {
-        const imageUrl = await convertImageFileToDataUrl(file);
-        setEditForm((prev: any) => ({ ...prev, featured_image_url: imageUrl }));
-        showToast('Image uploaded. Click Save to keep this article.');
+        if (!isMockMode) {
+          const mediaItem = await uploadAndCreateMedia(file, session?.user?.email || 'admin', 'Blogs');
+          setEditForm((prev: any) => ({ ...prev, featured_image_url: mediaItem.file_url || mediaItem.image_url }));
+          await loadAllData();
+          showToast('Image uploaded to Media Library. Click Save to keep this article.');
+        } else {
+          const imageUrl = await convertImageFileToDataUrl(file);
+          setEditForm((prev: any) => ({ ...prev, featured_image_url: imageUrl }));
+          showToast('Image uploaded. Click Save to keep this article.');
+        }
       } catch (e: any) {
         showToast(e.message || 'Image upload failed', 'error');
       }
@@ -798,7 +1062,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
               <input placeholder="Excerpt" value={editForm.excerpt || ''} onChange={e => setEditForm({ ...editForm, excerpt: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
               <textarea placeholder="Content (Markdown)" rows={6} value={editForm.content || ''} onChange={e => setEditForm({ ...editForm, content: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
               <input placeholder="Slug" value={editForm.slug || ''} onChange={e => setEditForm({ ...editForm, slug: e.target.value })} className="px-4 py-2 rounded-lg border" />
-              <input placeholder="Image URL" value={editForm.featured_image_url || ''} onChange={e => setEditForm({ ...editForm, featured_image_url: e.target.value })} className="px-4 py-2 rounded-lg border" />
+              {/* Image URL removed — uploads and Media Library selection only */}
               <button type="button" onClick={() => setSelectingImageFor(true)} className="px-4 py-2 rounded-lg bg-gray-100">Choose from Media Library</button>
               <label className="col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-yellow-300 bg-white/70 px-4 py-3 text-sm">
                 <span className="font-semibold" style={{ color: NAVY }}>Upload article image from computer</span>
@@ -840,24 +1104,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
           ))}
         </div>
 
-        {/* Media picker modal for blogs */}
-        {selectingImageFor && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-            <div className="bg-white rounded-xl p-6 max-w-3xl w-full">
-              <h3 className="font-bold mb-4">Choose Image</h3>
-              <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto">
-                {media.map(m => (
-                  <button key={m.id} onClick={() => { setEditForm({ ...editForm, featured_image_url: m.image_url }); setSelectingImageFor(false); }} className="overflow-hidden rounded-lg">
-                    <img src={m.image_url} alt={m.name} className="w-full h-28 object-cover" />
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-end mt-4">
-                <button onClick={() => setSelectingImageFor(false)} className="px-4 py-2 rounded-lg">Close</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <MediaPicker open={!!selectingImageFor} onClose={() => setSelectingImageFor(false)} onSelect={(m: any) => { setEditForm({ ...editForm, featured_image_url: m.file_url || m.image_url }); setSelectingImageFor(false); }} />
       </div>
     );
   };
@@ -945,7 +1192,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
           ['hero_title', 'Main hero headline'],
           ['hero_rotator_words', 'Rotating words, separated by commas'],
           ['hero_description', 'Hero paragraph'],
-          ['hero_image', 'Hero background image URL'],
+          ['hero_image', 'Hero background image (use Media Library)'],
         ],
       },
       {
@@ -954,14 +1201,14 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
           ['cta_title', 'CTA title'],
           ['cta_discipline_highlight', 'CTA highlighted words'],
           ['cta_description', 'CTA description'],
-          ['cta_image', 'CTA background image URL'],
+          ['cta_image', 'CTA background image (use Media Library)'],
           ['about_title', 'Who We Are title'],
           ['about_description', 'Who We Are first paragraph'],
           ['about_extended', 'Who We Are second paragraph'],
           ['about_bullets', 'Who We Are bullets, separated by commas'],
           ['about_pull_quote', 'Who We Are quote'],
-          ['about_image', 'Who We Are main image URL'],
-          ['team_image', 'Team / secondary image URL'],
+          ['about_image', 'Who We Are main image (use Media Library)'],
+          ['team_image', 'Team / secondary image (use Media Library)'],
         ],
       },
     ];
@@ -973,7 +1220,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
             <div>
               <h3 className="font-bold" style={{ color: NAVY }}>Website Text, Pictures & Links</h3>
-              <p className="text-xs text-gray-500 mt-1">Edit the main content that appears across the public website. For pictures, use an image URL from Media Library.</p>
+              <p className="text-xs text-gray-500 mt-1">Edit the main content that appears across the public website. For pictures, upload from your device or choose from the Media Library.</p>
             </div>
             <button onClick={saveWebsiteContent} className="px-4 py-2 rounded-lg text-white font-bold text-sm" style={{ background: NAVY }}>
               <Save size={14} className="inline mr-1" /> Save Website Content
@@ -1020,6 +1267,245 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     );
   };
 
+  const SimpleSettingsEditor = ({
+    title,
+    description,
+    groups,
+  }: {
+    title: string;
+    description: string;
+    groups: { title: string; fields: [string, string, 'text' | 'textarea' | 'image'][] }[];
+  }) => {
+    const [draft, setDraft] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+      setDraft(settingsMap);
+    }, [siteSettings.length]);
+
+    const update = (key: string, value: string) => setDraft(prev => ({ ...prev, [key]: value }));
+
+    const save = async () => {
+      const keys = groups.flatMap(group => group.fields.map(([key]) => key));
+      await saveSettingItems(keys.map(key => ({ key, value: draft[key] || '' })));
+      showToast(`${title} saved`);
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold" style={{ color: NAVY }}>{title}</h2>
+            <p className="text-sm text-gray-500 mt-1">{description}</p>
+          </div>
+          <button onClick={save} className="px-4 py-2 rounded-lg text-white font-bold text-sm" style={{ background: NAVY }}>
+            <Save size={14} className="inline mr-1" /> Save Changes
+          </button>
+        </div>
+
+        {groups.map(group => (
+          <div key={group.title} className="bg-white p-6 rounded-xl border border-gray-100">
+            <h3 className="font-bold mb-4" style={{ color: NAVY }}>{group.title}</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {group.fields.map(([key, label, type]) => (
+                <label key={key} className={type === 'textarea' || type === 'image' ? 'md:col-span-2' : ''}>
+                  <span className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</span>
+                  {type === 'textarea' ? (
+                    <textarea rows={4} value={draft[key] || ''} onChange={e => update(key, e.target.value)} className="w-full px-4 py-2 rounded-lg border" />
+                  ) : (
+                    <input value={draft[key] || ''} onChange={e => update(key, e.target.value)} className="w-full px-4 py-2 rounded-lg border" />
+                  )}
+                  {type === 'image' && (
+                    <div className="mt-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                        {media.slice(0, 8).map(item => (
+                          <button
+                            type="button"
+                            key={`${key}-${item.id}`}
+                            onClick={() => update(key, item.image_url)}
+                            className="overflow-hidden rounded-lg border hover:border-yellow-400"
+                          >
+                            <img src={item.image_url} alt={item.name} className="h-20 w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                      {draft[key] && <img src={draft[key]} alt={label} className="max-h-60 w-full rounded-lg object-contain bg-gray-50" />}
+                    </div>
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const PageSectionsEditor = () => (
+    <SimpleSettingsEditor
+      title="Page Sections"
+      description="Edit the text and images used in the main homepage sections."
+      groups={[
+        {
+          title: 'Discovery / CTA Section',
+          fields: [
+            ['cta_title', 'Section title', 'text'],
+            ['cta_discipline_highlight', 'Highlighted words', 'text'],
+            ['cta_description', 'Description', 'textarea'],
+            ['cta_image', 'Background image', 'image'],
+          ],
+        },
+        {
+          title: 'Who We Are Section',
+          fields: [
+            ['about_title', 'Title', 'text'],
+            ['about_description', 'First paragraph', 'textarea'],
+            ['about_extended', 'Second paragraph', 'textarea'],
+            ['about_bullets', 'Bullet list, separated by commas', 'textarea'],
+            ['about_pull_quote', 'Quote', 'textarea'],
+            ['about_image', 'Main image', 'image'],
+            ['team_image', 'Secondary/team image', 'image'],
+          ],
+        },
+      ]}
+    />
+  );
+
+  const ContentBlocksEditor = () => (
+    <SimpleSettingsEditor
+      title="Content Blocks"
+      description="Edit repeated content blocks such as homepage stats, service headings, and industry headings."
+      groups={[
+        {
+          title: 'Hero Stats',
+          fields: [
+            ['hero_stat_1_value', 'Stat 1 value', 'text'],
+            ['hero_stat_1_label', 'Stat 1 label', 'text'],
+            ['hero_stat_2_value', 'Stat 2 value', 'text'],
+            ['hero_stat_2_label', 'Stat 2 label', 'text'],
+            ['hero_stat_3_value', 'Stat 3 value', 'text'],
+            ['hero_stat_3_label', 'Stat 3 label', 'text'],
+            ['hero_stat_4_value', 'Stat 4 value', 'text'],
+            ['hero_stat_4_label', 'Stat 4 label', 'text'],
+          ],
+        },
+        {
+          title: 'Services & Industries',
+          fields: [
+            ['services_heading', 'Service section heading', 'text'],
+            ['services_description', 'Service section description', 'textarea'],
+            ['industries_heading', 'Industry section heading', 'text'],
+            ['industries_description', 'Industry section description', 'textarea'],
+            ['why_choose_heading', 'Why partner heading', 'text'],
+          ],
+        },
+      ]}
+    />
+  );
+
+  const TeamMembersEditor = () => (
+    <SimpleSettingsEditor
+      title="Team Members"
+      description="Edit the team section content and imagery shown on the website."
+      groups={[
+        {
+          title: 'Team Section',
+          fields: [
+            ['team_section_title', 'Team section title', 'text'],
+            ['team_section_description', 'Team section description', 'textarea'],
+            ['team_image', 'Team image', 'image'],
+          ],
+        },
+      ]}
+    />
+  );
+
+  const FaqsEditor = () => (
+    <SimpleSettingsEditor
+      title="FAQs"
+      description="Edit frequently asked questions. Use one question/answer per numbered field."
+      groups={[
+        {
+          title: 'FAQ Content',
+          fields: [
+            ['faq_1_question', 'Question 1', 'text'],
+            ['faq_1_answer', 'Answer 1', 'textarea'],
+            ['faq_2_question', 'Question 2', 'text'],
+            ['faq_2_answer', 'Answer 2', 'textarea'],
+            ['faq_3_question', 'Question 3', 'text'],
+            ['faq_3_answer', 'Answer 3', 'textarea'],
+          ],
+        },
+      ]}
+    />
+  );
+
+  const FooterEditor = () => {
+    const [footerDraft, setFooterDraft] = useState<any>({
+      description: '',
+      contact_email: '',
+      contact_phone: '',
+      linkedin_url: '',
+      copyright_text: '',
+      tagline: '',
+    });
+
+    useEffect(() => {
+      try {
+        setFooterDraft(settingsMap.footer_config ? JSON.parse(settingsMap.footer_config) : {
+          description: settingsMap.footer_description || 'Integrated professional solutions that strengthen systems, improve compliance, enhance accountability, and build organisational capacity for sustainable performance.',
+          contact_email: settingsMap.contact_email || 'info@enkaprime.com',
+          contact_phone: settingsMap.contact_phone || '0200 769 146',
+          linkedin_url: settingsMap.linkedin_url || '',
+          copyright_text: '© 2026 Enka Prime Consulting Ltd. All rights reserved.',
+          tagline: settingsMap.about_tagline || 'Empowering People. Enhancing Performance. Delivering Excellence.',
+        });
+      } catch {
+        setFooterDraft({});
+      }
+    }, [siteSettings.length]);
+
+    const save = async () => {
+      await saveSettingItems([
+        { key: 'footer_config', value: JSON.stringify(footerDraft) },
+        { key: 'footer_logo', value: settingsMap.footer_logo || '/white-enka-prime-logo.png' },
+      ]);
+      showToast('Footer saved');
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold" style={{ color: NAVY }}>Footer</h2>
+            <p className="text-sm text-gray-500 mt-1">Edit footer description, contact details, copyright, and tagline.</p>
+          </div>
+          <button onClick={save} className="px-4 py-2 rounded-lg text-white font-bold text-sm" style={{ background: NAVY }}>
+            <Save size={14} className="inline mr-1" /> Save Footer
+          </button>
+        </div>
+        <div className="bg-white p-6 rounded-xl border grid md:grid-cols-2 gap-4">
+          {[
+            ['description', 'Footer description', 'textarea'],
+            ['contact_email', 'Contact email', 'text'],
+            ['contact_phone', 'Contact phone', 'text'],
+            ['linkedin_url', 'LinkedIn URL', 'text'],
+            ['copyright_text', 'Copyright text', 'text'],
+            ['tagline', 'Footer tagline', 'text'],
+          ].map(([key, label, type]) => (
+            <label key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
+              <span className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</span>
+              {type === 'textarea' ? (
+                <textarea rows={4} value={footerDraft[key] || ''} onChange={e => setFooterDraft({ ...footerDraft, [key]: e.target.value })} className="w-full px-4 py-2 rounded-lg border" />
+              ) : (
+                <input value={footerDraft[key] || ''} onChange={e => setFooterDraft({ ...footerDraft, [key]: e.target.value })} className="w-full px-4 py-2 rounded-lg border" />
+              )}
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   // Media Library
   const MediaLibrary = () => {
     const [mediaList, setMediaList] = useState<any[]>([]);
@@ -1051,9 +1537,15 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
     const uploadMedia = async (file: File | undefined) => {
       if (!file) return;
       try {
-        const mediaItem = await createMediaFromFile(file, editForm?.category || 'General');
-        setEditForm((prev: any) => ({ ...(prev || {}), ...mediaItem }));
-        showToast('Image uploaded. Add a name/category, then click Save.');
+        if (!isMockMode) {
+          const url = await uploadImageToStorage(file);
+          setEditForm((prev: any) => ({ ...(prev || {}), image_url: url, name: file.name.replace(/\.[^.]+$/, '') }));
+          showToast('Image uploaded to storage. Add a name/category, then click Save.');
+        } else {
+          const mediaItem = await createMediaFromFile(file, editForm?.category || 'General');
+          setEditForm((prev: any) => ({ ...(prev || {}), ...mediaItem }));
+          showToast('Image uploaded. Add a name/category, then click Save.');
+        }
       } catch (e: any) {
         showToast(e.message || 'Image upload failed', 'error');
       }
@@ -1098,7 +1590,7 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
             <h3 className="font-bold mb-4" style={{ color: NAVY }}>Add/Edit Image</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <input placeholder="Image Name" value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
-              <input placeholder="Image URL" value={editForm.image_url || ''} onChange={e => setEditForm({ ...editForm, image_url: e.target.value })} className="px-4 py-2 rounded-lg border col-span-2" />
+              {/* Image URL field removed — use Upload from computer or Media Library selection only */}
               <label className="col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-yellow-300 bg-white/70 px-4 py-3 text-sm">
                 <span className="font-semibold" style={{ color: NAVY }}>Upload new image from computer</span>
                 <input type="file" accept="image/*" onChange={e => uploadMedia(e.target.files?.[0])} className="text-sm" />
@@ -1281,18 +1773,34 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;`}
             <h1 className="text-lg font-bold" style={{ color: NAVY }}>
               {TabConfig.find(t => t.key === activeTab)?.label || 'CMS'}
             </h1>
+            <div className="ml-4 flex items-center gap-2 text-sm text-gray-500">
+              <label className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-full">
+                <input type="checkbox" checked={previewMode} onChange={e => setPreviewMode(e.target.checked)} /> Preview
+              </label>
+              <button onClick={() => { const next = !isMockMode; localStorage.setItem('admin_mock_mode', String(next)); setIsMockMode(next); if (next) setSession({ user: { email: 'mock-admin@enkaprime.com' } }); else setSession(null); }} className={`px-2 py-1 rounded-full text-xs font-semibold ${isMockMode ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                {isMockMode ? 'Local Edit Mode' : 'Use DB'}
+              </button>
+            </div>
           </div>
-          <button onClick={() => onNavigate('home')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-100 text-gray-600">
-            <ArrowLeft size={14} /> View Site
-          </button>
+          <div className="flex items-center gap-3">
+            {session?.user?.email && <div className="text-xs text-gray-600 mr-2">{session.user.email}</div>}
+            <button onClick={() => onNavigate('home')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-100 text-gray-600">
+              <ArrowLeft size={14} /> View Site
+            </button>
+          </div>
         </header>
 
         <main className="p-6 max-w-6xl">
           {activeTab === 'dashboard' && <DashboardView />}
           {activeTab === 'hero' && <HeroEditor />}
+          {activeTab === 'sections' && <PageSectionsEditor />}
           {activeTab === 'media' && <MediaLibrary />}
+          {activeTab === 'content-blocks' && <ContentBlocksEditor />}
           {activeTab === 'trainings' && <TrainingsEditor />}
           {activeTab === 'blogs' && <BlogsEditor />}
+          {activeTab === 'team' && <TeamMembersEditor />}
+          {activeTab === 'faqs' && <FaqsEditor />}
+          {activeTab === 'footer' && <FooterEditor />}
           {activeTab === 'settings' && <SiteSettingsEditor />}
         </main>
       </div>

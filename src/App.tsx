@@ -10,7 +10,7 @@ import Services from './pages/Services';
 import ServiceDetail from './pages/ServiceDetail';
 import Training from './pages/Training';
 import About from './pages/About';
-import Admin from './pages/AdminCMS';
+import Admin from './pages/Admin';
 import Blogs from './pages/Blogs';
 
 const NAV_LINKS = [
@@ -67,30 +67,78 @@ export default function App() {
   }, [showAnnouncement]);
 
   const loadPublicData = useCallback(async () => {
-    const localSettings = localStorage.getItem('local_settings');
+    // Load from localStorage first (set by AdminCMS local/mock mode)
+    const localSettingsRaw = localStorage.getItem('local_settings');
     const localMap: Record<string, string> = {};
-    if (localSettings) {
-      const parsed = JSON.parse(localSettings);
-      parsed.forEach((s: any) => { localMap[s.key] = s.value; });
+    if (localSettingsRaw) {
+      try {
+        const parsed = JSON.parse(localSettingsRaw);
+        parsed.forEach((s: any) => { if (s.key) localMap[s.key] = s.value; });
+      } catch (e) { /* ignore */ }
     }
 
-    const [settingsRes, programmesRes] = await Promise.all([
-      supabase.from('site_settings').select('key, value'),
-      supabase.from('programmes').select('*').eq('is_active', true).order('category, code'),
-    ]);
+    // Always use local settings — mock client returns empty arrays anyway
+    setDbSettings(localMap);
 
-    const map: Record<string, string> = {};
-    if (settingsRes.data) {
-      settingsRes.data.forEach((s: any) => { map[s.key] = s.value; });
+    // Load programmes from localStorage if available
+    const localProgs = localStorage.getItem('local_programmes');
+    if (localProgs) {
+      try {
+        const parsed = JSON.parse(localProgs);
+        if (parsed.length > 0) setDbProgrammes(parsed);
+      } catch (e) { /* ignore */ }
     }
-
-    // Merge: local storage overrides database settings if present
-    setDbSettings({ ...map, ...localMap });
-
-    if (programmesRes.data) setDbProgrammes(programmesRes.data);
   }, []);
 
   useEffect(() => { loadPublicData(); }, [loadPublicData]);
+
+  // One-time migration: push any localStorage visitors & contacts into Supabase
+  useEffect(() => {
+    const MIGRATED_KEY = 'enka_ls_migrated_v1';
+    if (localStorage.getItem(MIGRATED_KEY)) return;
+
+    const migrateData = async () => {
+      try {
+        // Migrate visitors
+        const localVisitors: any[] = JSON.parse(localStorage.getItem('local_visitors') || '[]');
+        if (localVisitors.length > 0) {
+          const rows = localVisitors.map((v: any) => ({
+            page:       v.page || '#home',
+            user_agent: v.ua || '',
+            referrer:   '',
+            visited_at: v.time || new Date().toISOString(),
+          }));
+          // Insert in batches of 100
+          for (let i = 0; i < rows.length; i += 100) {
+            await supabase.from('page_visits').insert(rows.slice(i, i + 100));
+          }
+        }
+
+        // Migrate contact submissions
+        const localContacts: any[] = JSON.parse(localStorage.getItem('local_contacts') || '[]');
+        if (localContacts.length > 0) {
+          const rows = localContacts.map((c: any) => ({
+            name:         c.name || '',
+            email:        c.email || '',
+            phone:        c.phone || '',
+            organization: c.organization || '',
+            message:      c.message || '',
+            source_page:  'contact',
+            created_at:   c.time || new Date().toISOString(),
+          }));
+          await supabase.from('contact_submissions').insert(rows);
+        }
+
+        localStorage.setItem(MIGRATED_KEY, 'true');
+        console.log(`Migrated ${localVisitors.length} visits and ${localContacts.length} contacts to Supabase.`);
+      } catch (e) {
+        // Silently fail — will retry next load
+        console.warn('Migration to Supabase failed, will retry next load:', e);
+      }
+    };
+
+    migrateData();
+  }, []);
 
   // Global delegated handler: when clicking any element with .fly-trigger,
   // animate all .fly-target elements within the same section with a fly-in effect.
@@ -313,6 +361,20 @@ export default function App() {
     };
 
     setSubmitted(true);
+    // Save to localStorage for admin tracking
+    try {
+      const lead = { id: Math.random().toString(36).slice(2), time: new Date().toISOString(), ...payload };
+      const existing = JSON.parse(localStorage.getItem('local_contacts') || '[]');
+      localStorage.setItem('local_contacts', JSON.stringify([...existing, lead]));
+    } catch (e) { /* ignore */ }
+    // Also save to Supabase
+    try {
+      await supabase.from('contact_submissions').insert({
+        name: payload.name, email: payload.email,
+        organization: payload.organization, message: payload.message,
+        source_page: 'contact',
+      });
+    } catch (e) { /* ignore — localStorage already saved */ }
     try {
       const res = await fetch('https://formspree.io/f/maqznnrw', {
         method: 'POST',
@@ -358,6 +420,14 @@ export default function App() {
     }
     window.location.hash = page;
     setCurrentPage(page);
+    // Track page visit in localStorage and Supabase
+    try {
+      const visit = { id: Math.random().toString(36).slice(2), time: new Date().toISOString(), page: '#' + page, ua: navigator.userAgent.slice(0, 80) };
+      const visits = JSON.parse(localStorage.getItem('local_visitors') || '[]');
+      localStorage.setItem('local_visitors', JSON.stringify([...visits, visit].slice(-500)));
+      // Fire-and-forget to Supabase
+      supabase.from('page_visits').insert({ page: '#' + page, user_agent: navigator.userAgent.slice(0, 200), referrer: document.referrer.slice(0, 200) }).then(() => {});
+    } catch (e) { /* ignore */ }
     if (page !== 'admin') loadPublicData();
   };
 
