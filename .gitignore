@@ -21,3 +21,8 @@ dist-ssr
 *.sln
 *.sw?
 .env*
+
+# Large local asset files (use public/ folder instead)
+company1.jpg
+assets/index-*.js
+assets/index-*.css

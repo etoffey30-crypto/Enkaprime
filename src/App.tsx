@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Menu, X, Phone, Mail, MapPin,
   CheckCircle, ChevronDown, Database, Tag, ShieldCheck, GraduationCap,
-  Facebook, Linkedin, MessageCircle
+  Facebook, Linkedin, MessageCircle, ArrowRight
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
@@ -11,12 +11,14 @@ import ServiceDetail from './pages/ServiceDetail';
 import Training from './pages/Training';
 import About from './pages/About';
 import Admin from './pages/Admin';
+import Blogs from './pages/Blogs';
 
 const NAV_LINKS = [
   { label: 'Home', href: 'home' },
   { label: 'About Us', href: 'about' },
   { label: 'Services', href: 'services', hasDropdown: true },
   { label: 'Upcoming Training', href: 'upcoming-training' },
+  { label: 'Blogs', href: 'blogs' },
   { label: 'Contact Us', href: 'contact' },
 ];
 
@@ -45,6 +47,7 @@ export default function App() {
   const [submitted, setSubmitted] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
 
   // Listen for hash changes (back/forward browser buttons)
   useEffect(() => {
@@ -56,21 +59,86 @@ export default function App() {
   // Database-driven data
   const [dbSettings, setDbSettings] = useState<Record<string, string>>({});
   const [dbProgrammes, setDbProgrammes] = useState<any[]>([]);
+  const showAnnouncement = dbSettings.announcement_bar_enabled === 'true' && !announcementDismissed;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--announcement-height', showAnnouncement ? '40px' : '0px');
+  }, [showAnnouncement]);
 
   const loadPublicData = useCallback(async () => {
-    const [settingsRes, programmesRes] = await Promise.all([
-      supabase.from('site_settings').select('key, value'),
-      supabase.from('programmes').select('*').eq('is_active', true).order('category, code'),
-    ]);
-    if (settingsRes.data) {
-      const map: Record<string, string> = {};
-      settingsRes.data.forEach((s: any) => { map[s.key] = s.value; });
-      setDbSettings(map);
+    // Load from localStorage first (set by AdminCMS local/mock mode)
+    const localSettingsRaw = localStorage.getItem('local_settings');
+    const localMap: Record<string, string> = {};
+    if (localSettingsRaw) {
+      try {
+        const parsed = JSON.parse(localSettingsRaw);
+        parsed.forEach((s: any) => { if (s.key) localMap[s.key] = s.value; });
+      } catch (e) { /* ignore */ }
     }
-    if (programmesRes.data) setDbProgrammes(programmesRes.data);
+
+    // Always use local settings — mock client returns empty arrays anyway
+    setDbSettings(localMap);
+
+    // Load programmes from localStorage if available
+    const localProgs = localStorage.getItem('local_programmes');
+    if (localProgs) {
+      try {
+        const parsed = JSON.parse(localProgs);
+        if (parsed.length > 0) setDbProgrammes(parsed);
+      } catch (e) { /* ignore */ }
+    }
   }, []);
 
   useEffect(() => { loadPublicData(); }, [loadPublicData]);
+
+  // One-time migration: push any localStorage visitors & contacts into Supabase
+  useEffect(() => {
+    const MIGRATED_KEY = 'enka_ls_migrated_v1';
+    if (localStorage.getItem(MIGRATED_KEY)) return;
+
+    const migrateData = async () => {
+      try {
+        // Migrate visitors
+        const localVisitors: any[] = JSON.parse(localStorage.getItem('local_visitors') || '[]');
+        if (localVisitors.length > 0) {
+          const rows = localVisitors.map((v: any) => ({
+            page:       v.page || '#home',
+            user_agent: v.ua || '',
+            referrer:   '',
+            visited_at: v.time || new Date().toISOString(),
+          }));
+          // Insert in batches of 100
+          for (let i = 0; i < rows.length; i += 100) {
+            await supabase.from('page_visits').insert(rows.slice(i, i + 100));
+          }
+        }
+
+        // Migrate contact submissions
+        const localContacts: any[] = JSON.parse(localStorage.getItem('local_contacts') || '[]');
+        if (localContacts.length > 0) {
+          const rows = localContacts.map((c: any) => ({
+            name:         c.name || '',
+            email:        c.email || '',
+            phone:        c.phone || '',
+            organization: c.organization || '',
+            message:      c.message || '',
+            source_page:  'contact',
+            created_at:   c.time || new Date().toISOString(),
+          }));
+          await supabase.from('contact_submissions').insert(rows);
+        }
+
+        localStorage.setItem(MIGRATED_KEY, 'true');
+        console.log(`Migrated ${localVisitors.length} visits and ${localContacts.length} contacts to Supabase.`);
+      } catch (e) {
+        // Silently fail — will retry next load
+        console.warn('Migration to Supabase failed, will retry next load:', e);
+      }
+    };
+
+    migrateData();
+  }, []);
 
   // Global delegated handler: when clicking any element with .fly-trigger,
   // animate all .fly-target elements within the same section with a fly-in effect.
@@ -109,7 +177,7 @@ export default function App() {
   useEffect(() => {
     try {
       const ds = dbSettings.design_system ? JSON.parse(dbSettings.design_system) : {};
-      
+
       const primary = ds.primary_color || '#0F2044';
       const secondary = ds.secondary_color || '#C9A84C';
       const accent = ds.accent_color || '#F3F4F6';
@@ -293,6 +361,20 @@ export default function App() {
     };
 
     setSubmitted(true);
+    // Save to localStorage for admin tracking
+    try {
+      const lead = { id: Math.random().toString(36).slice(2), time: new Date().toISOString(), ...payload };
+      const existing = JSON.parse(localStorage.getItem('local_contacts') || '[]');
+      localStorage.setItem('local_contacts', JSON.stringify([...existing, lead]));
+    } catch (e) { /* ignore */ }
+    // Also save to Supabase
+    try {
+      await supabase.from('contact_submissions').insert({
+        name: payload.name, email: payload.email,
+        organization: payload.organization, message: payload.message,
+        source_page: 'contact',
+      });
+    } catch (e) { /* ignore — localStorage already saved */ }
     try {
       const res = await fetch('https://formspree.io/f/maqznnrw', {
         method: 'POST',
@@ -338,6 +420,14 @@ export default function App() {
     }
     window.location.hash = page;
     setCurrentPage(page);
+    // Track page visit in localStorage and Supabase
+    try {
+      const visit = { id: Math.random().toString(36).slice(2), time: new Date().toISOString(), page: '#' + page, ua: navigator.userAgent.slice(0, 80) };
+      const visits = JSON.parse(localStorage.getItem('local_visitors') || '[]');
+      localStorage.setItem('local_visitors', JSON.stringify([...visits, visit].slice(-500)));
+      // Fire-and-forget to Supabase
+      supabase.from('page_visits').insert({ page: '#' + page, user_agent: navigator.userAgent.slice(0, 200), referrer: document.referrer.slice(0, 200) }).then(() => {});
+    } catch (e) { /* ignore */ }
     if (page !== 'admin') loadPublicData();
   };
 
@@ -360,6 +450,8 @@ export default function App() {
         return <ServiceDetail serviceKey="iso" onNavigate={navigate} />;
       case 'training':
         return <Training onNavigate={navigate} />;
+      case 'blogs':
+        return <Blogs onNavigate={navigate} />;
       case 'about':
         return <About onNavigate={navigate} settings={dbSettings} />;
       case 'programmes':
@@ -372,10 +464,13 @@ export default function App() {
   };
 
   const NavBar = () => (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm">
+    <nav 
+      className="fixed left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm"
+      style={{ top: showAnnouncement ? '40px' : '0px' }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
-          <img src={dbSettings.header_logo || "/enkaprime/enkaprime-logo.png"} alt="Enka Prime Consulting Ltd" className="h-16 sm:h-20 lg:h-24 w-auto object-contain" />
+          <img src={dbSettings.header_logo || "/biglogo.png"} alt="Enka Prime Consulting Ltd" className="h-12 sm:h-14 lg:h-16 w-auto object-contain" />
         </button>
 
         <div className="hidden lg:flex items-center gap-8">
@@ -399,7 +494,7 @@ export default function App() {
 
                   {/* Simple Dropdown */}
                   {servicesDropdownOpen && (
-                    <div 
+                    <div
                       className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 animate-fade-in"
                       style={{ boxShadow: '0 10px 25px rgba(15,32,68,0.08)' }}
                     >
@@ -452,7 +547,13 @@ export default function App() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="lg:hidden fixed left-0 right-0 top-[89px] max-h-[calc(100dvh-89px)] overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down">
+        <div 
+          className="lg:hidden fixed left-0 right-0 overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down"
+          style={{ 
+            top: showAnnouncement ? '105px' : '65px',
+            maxHeight: showAnnouncement ? 'calc(100dvh - 105px)' : 'calc(100dvh - 65px)'
+          }}
+        >
           {/* Services section expanded in mobile */}
           <div className="py-2 border-b border-gray-100">
             <div className="text-[10px] font-extrabold tracking-widest uppercase text-gray-400 mb-3">Services</div>
@@ -663,22 +764,22 @@ export default function App() {
                           {field.label}
                         </label>
                         <input
-                              id={id}
-                              ref={field.name === 'name' ? nameRef : field.name === 'email' ? emailRef : orgRef}
-                              name={field.name}
-                              type={field.type}
-                              required
-                              autoComplete={field.autoComplete}
-                              placeholder={field.placeholder}
-                              defaultValue={formData[field.name as keyof typeof formData]}
-                              onKeyDown={e => e.stopPropagation()}
-                              onKeyUp={e => e.stopPropagation()}
-                              onInput={e => e.stopPropagation()}
-                              onMouseDown={e => e.stopPropagation()}
-                              onTouchStart={e => e.stopPropagation()}
-                              onFocus={e => e.stopPropagation()}
-                              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
-                            />
+                          id={id}
+                          ref={field.name === 'name' ? nameRef : field.name === 'email' ? emailRef : orgRef}
+                          name={field.name}
+                          type={field.type}
+                          required
+                          autoComplete={field.autoComplete}
+                          placeholder={field.placeholder}
+                          defaultValue={formData[field.name as keyof typeof formData]}
+                          onKeyDown={e => e.stopPropagation()}
+                          onKeyUp={e => e.stopPropagation()}
+                          onInput={e => e.stopPropagation()}
+                          onMouseDown={e => e.stopPropagation()}
+                          onTouchStart={e => e.stopPropagation()}
+                          onFocus={e => e.stopPropagation()}
+                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 text-gray-800 bg-gray-50 placeholder-gray-400 transition-all"
+                        />
                       </div>
                     );
                   })}
@@ -720,11 +821,80 @@ export default function App() {
     </div>
   );
 
+  // Announcement bar component
+  const AnnouncementBar = () => {
+    // Prefer a download_banner stored as JSON in site_settings.download_banner
+    try {
+      const raw = dbSettings.download_banner;
+      if (raw) {
+        const banner = JSON.parse(raw);
+        if (banner && banner.is_active) {
+          return (
+            <div className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in">
+              <div className="flex-1 flex justify-center">
+                {banner.cta_link ? (
+                  <a href={banner.cta_link} className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5">
+                    <span>{banner.text || 'Click to download'}</span>
+                    <ArrowRight size={14} className="animate-pulse" />
+                  </a>
+                ) : (
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">{banner.text || 'Click to download'}</span>
+                )}
+              </div>
+              <button onClick={() => setAnnouncementDismissed(true)} className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0" aria-label="Dismiss announcement">
+                <X size={16} />
+              </button>
+            </div>
+          );
+        }
+      }
+    } catch (e) {
+      // ignore parse errors and fallback to legacy announcement
+    }
+
+    if (!showAnnouncement) return null;
+    return (
+      <div 
+        className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in"
+      >
+        <div className="flex-1 flex justify-center">
+          {dbSettings.announcement_bar_link ? (
+            <a 
+              href={dbSettings.announcement_bar_link} 
+              className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5"
+            >
+              <span>{dbSettings.announcement_bar_text || 'Click here to learn more'}</span>
+              <ArrowRight size={14} className="animate-pulse" />
+            </a>
+          ) : (
+            <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">
+              {dbSettings.announcement_bar_text}
+            </span>
+          )}
+        </div>
+        <button 
+          onClick={() => setAnnouncementDismissed(true)}
+          className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0"
+          aria-label="Dismiss announcement"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-white font-sans">
+      <AnnouncementBar />
       <NavBar />
       <SocialRail />
-      {renderPage()}
+      <div 
+        style={{ paddingTop: showAnnouncement ? '40px' : '0px' }} 
+        className="transition-all duration-300 flex flex-col min-h-screen"
+      >
+        <div className="flex-1">
+          {renderPage()}
+        </div>
 
       {/* Footer */}
       <footer className="bg-custom-primary pt-14 pb-8 border-t border-white/10 font-custom text-white">
@@ -793,6 +963,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

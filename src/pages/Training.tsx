@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowRight, ChevronLeft, Filter, GraduationCap, Star, Clock, Calendar, BookOpen } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Filter, GraduationCap, Star, Clock, Calendar, BookOpen, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const GOLD = '#C9A84C';
@@ -15,27 +15,87 @@ const CATEGORY_META: Record<string, { color: string; bg: string; desc: string }>
   General: { color: '#6b7280', bg: '#f3f4f6', desc: 'Communication, report writing and professional development' },
 };
 
+const FALLBACK_TRAININGS = [
+  {
+    id: 't-1',
+    title: 'Advanced Records Management & Digitalisation',
+    short_summary: 'Master the transition from physical filing systems to secure, searchable digital databases.',
+    synopsis: 'This comprehensive programme covers document classification, indexing schemas, digital archiving, access control management, and metadata structure design. Participants will learn how to configure an electronic document management system (EDMS) and draft records management policies to guarantee audit compliance.',
+    image_url: 'https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg',
+    category: 'Digital',
+    duration: '3 Days',
+    is_active: true
+  },
+  {
+    id: 't-2',
+    title: 'Asset Verification & Register Development',
+    short_summary: 'Learn practical methods for physical asset counting, barcode tagging, and register reconciliation.',
+    synopsis: 'A step-by-step training on establishing an institutional asset tracking system. Covers asset labeling methodologies (barcodes/QR codes), location mapping, depreciation scheduling, custodian assignments, and register auditing. Learn to reconcile the physical reality of assets with your balance sheet.',
+    image_url: 'https://images.pexels.com/photos/6169668/pexels-photo-6169668.jpeg',
+    category: 'Finance',
+    duration: '2 Days',
+    is_active: true
+  },
+  {
+    id: 't-3',
+    title: 'ISO 9001:2015 Quality Management Systems (QMS) Lead Implementer',
+    short_summary: 'Gain the skills to design, deploy, and maintain an ISO-compliant quality framework in your organisation.',
+    synopsis: 'Become a certified quality manager. This course guides you through the ISO 9001 standard clauses, gap analysis methodologies, document controls, internal audit design, and management review protocols. Gain the tools to prepare your company for external certification.',
+    image_url: 'https://images.pexels.com/photos/5716001/pexels-photo-5716001.jpeg',
+    category: 'Leadership',
+    duration: '5 Days',
+    is_active: true
+  },
+  {
+    id: 't-4',
+    title: 'Executive Leadership & Corporate Governance',
+    short_summary: 'Empower senior management with strategic planning tools, decision frameworks, and board advisory skills.',
+    synopsis: 'Designed for executives and board members. Covers corporate governance frameworks, strategic planning, ethical oversight, risk management, performance metrics, and succession planning. Focuses on building corporate culture and delivering long-term shareholder value.',
+    image_url: 'https://images.pexels.com/photos/3184418/pexels-photo-3184418.jpeg',
+    category: 'Leadership',
+    duration: '3 Days',
+    is_active: true
+  }
+];
+
 interface TrainingProps {
   onNavigate: (page: string, message?: string) => void;
 }
 
 export default function Training({ onNavigate }: TrainingProps) {
   const [programmes, setProgrammes] = useState<any[]>([]);
+  const [trainings, setTrainings] = useState<any[]>([]);
+  const [selectedTraining, setSelectedTraining] = useState<any | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(true);
 
-  const loadProgrammes = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('programmes')
-      .select('*')
-      .eq('is_active', true)
-      .order('category, code');
-    if (data) setProgrammes(data);
-    setLoading(false);
+    try {
+      const localTrainings = localStorage.getItem('local_trainings');
+      if (localTrainings) {
+        const parsed = JSON.parse(localTrainings);
+        setTrainings(parsed.filter((t: any) => t.is_active));
+      } else {
+        const trainRes = await supabase.from('trainings').select('*').eq('is_active', true).order('sort_order');
+        if (trainRes.data && trainRes.data.length > 0) {
+          setTrainings(trainRes.data);
+        } else {
+          setTrainings(FALLBACK_TRAININGS);
+        }
+      }
+
+      const progRes = await supabase.from('programmes').select('*').eq('is_active', true).order('category, code');
+      if (progRes.data) setProgrammes(progRes.data);
+    } catch (e) {
+      console.error('Failed to load training data, using fallbacks:', e);
+      setTrainings(FALLBACK_TRAININGS);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { loadProgrammes(); }, [loadProgrammes]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = activeCategory === 'All'
     ? programmes
@@ -161,6 +221,73 @@ export default function Training({ onNavigate }: TrainingProps) {
                 </div>
                 <div className="flex items-center gap-1.5 text-xs font-bold mt-4 transition-colors" style={{ color: GOLD }}>
                   View Courses <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TRAINING COURSES PORTFOLIO (NEW SECTION) ── */}
+      <section className="py-14 sm:py-20 bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10 sm:mb-14">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4"
+              style={{ background: `${GOLD}18`, color: GOLD }}>
+              Course Portfolio
+            </div>
+            <h2 className="text-3xl font-extrabold" style={{ color: NAVY }}>
+              Our Professional <span style={{ color: GOLD }}>Training Courses</span>
+            </h2>
+            <p className="text-gray-500 max-w-lg mx-auto text-sm mt-2">
+              Browse our key corporate training courses. Click any card to read the full synopsis and course outlines.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {trainings.map((item) => (
+              <div 
+                key={item.id} 
+                className="group bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:border-yellow-400 hover:shadow-xl transition-all duration-300 flex flex-col h-full cursor-pointer"
+                onClick={() => setSelectedTraining(item)}
+              >
+                {/* Image */}
+                <div className="relative h-48 bg-slate-200 overflow-hidden flex-shrink-0">
+                  {item.image_url ? (
+                    <img 
+                      src={item.image_url} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-yellow-600">
+                      <GraduationCap size={36} />
+                    </div>
+                  )}
+                  {/* Category badge */}
+                  <span className="absolute top-4 left-4 text-[10px] font-extrabold px-2.5 py-1 rounded-md bg-white/95 text-slate-800 shadow-sm border border-gray-100">
+                    {item.category || 'General'}
+                  </span>
+                  {/* Duration badge */}
+                  <span className="absolute bottom-4 right-4 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-900/80 text-white backdrop-blur-xs">
+                    {item.duration || '2 Days'}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 flex flex-col flex-1">
+                  <h3 className="font-extrabold text-base mb-2 group-hover:text-yellow-600 transition-colors" style={{ color: NAVY }}>
+                    {item.title}
+                  </h3>
+                  <p className="text-gray-500 text-xs sm:text-sm leading-relaxed flex-1 mb-6 line-clamp-3">
+                    {item.short_summary || item.synopsis.slice(0, 120) + '...'}
+                  </p>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSelectedTraining(item); }}
+                    className="self-start inline-flex items-center gap-1.5 text-xs font-bold transition-all text-yellow-600 hover:text-yellow-700"
+                  >
+                    View Details & Synopsis <ArrowRight size={12} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -366,6 +493,87 @@ export default function Training({ onNavigate }: TrainingProps) {
           </div>
         </div>
       </section>
+
+      {/* ── DETAIL MODAL FOR SYNOPSIS (NEW) ── */}
+      {selectedTraining && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedTraining(null)}>
+          <div 
+            className="relative w-full max-w-2xl bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-scale-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={() => setSelectedTraining(null)}
+                className="p-2 rounded-full bg-white/80 hover:bg-white text-slate-800 shadow-md hover:scale-105 transition-all"
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Banner */}
+            <div className="relative h-48 bg-slate-900 overflow-hidden flex-shrink-0">
+              {selectedTraining.image_url ? (
+                <img 
+                  src={selectedTraining.image_url} 
+                  alt={selectedTraining.title} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-yellow-600 bg-slate-900">
+                  <GraduationCap size={48} />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent opacity-85" />
+              
+              <div className="absolute bottom-4 left-6 right-6">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-yellow-500 text-slate-900 mb-2 inline-block">
+                  {selectedTraining.category || 'General'}
+                </span>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white leading-tight">
+                  {selectedTraining.title}
+                </h2>
+              </div>
+            </div>
+
+            {/* Scrollable details */}
+            <div className="overflow-y-auto p-6 sm:p-8 flex-1">
+              <div className="flex items-center gap-4 mb-6 text-xs text-gray-500 font-bold border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-1">
+                  <Clock size={14} className="text-yellow-600" />
+                  <span>Duration: {selectedTraining.duration || '2 Days'}</span>
+                </div>
+                <div>•</div>
+                <div>In-House Delivery Only</div>
+              </div>
+
+              <div className="text-slate-700 text-sm sm:text-base leading-relaxed space-y-4">
+                <h4 className="font-extrabold text-slate-900 text-sm uppercase tracking-wide">Course Synopsis</h4>
+                <p className="whitespace-pre-line text-slate-600">{selectedTraining.synopsis}</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 p-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <p className="text-slate-800 font-bold text-xs">Interested in this course?</p>
+                <p className="text-gray-400 text-[10px]">We deliver customized, in-house programs directly at your facility.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedTraining(null);
+                  onNavigate('contact', `Hello Enka Prime, I would like to enquire about your corporate training course: "${selectedTraining.title}". Please send us information on scheduling and pricing.`);
+                }}
+                className="px-5 py-3 rounded-xl text-xs font-bold text-white transition-all duration-300 hover:scale-105 hover:shadow-lg w-full sm:w-auto text-center"
+                style={{ backgroundColor: NAVY }}
+              >
+                Send Course Enquiry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
