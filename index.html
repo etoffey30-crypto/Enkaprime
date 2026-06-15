@@ -18,14 +18,17 @@
   <body>
     <div id="root"></div>
     <script>
-      // Convert path-based routes (e.g. /admin) to hash routes (/#admin)
-      // This allows the SPA to work when served from the root domain.
+      // Convert path-based routes to hash routes for GitHub Pages SPA routing
+      // e.g. /Enkaprime/admin -> /Enkaprime/#admin
+      var base = '/Enkaprime/';
       var path = window.location.pathname;
 
       // If it's not the root and it doesn't look like an asset or file, redirect to hash route
-      if (path !== '/' && !path.includes('/assets/') && !path.includes('.')) {
-        var route = path.slice(1); // remove leading slash
-        window.location.replace('/#' + route);
+      if (path !== base && path !== '/' && !path.includes('/assets/') && !path.includes('.')) {
+        var route = path.replace(base, '').replace(/^\//, ''); // remove base and leading slash
+        if (route) {
+          window.location.replace(base + '#' + route);
+        }
       }
     </script>
 
