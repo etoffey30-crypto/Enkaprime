@@ -72,21 +72,25 @@ export default function Training({ onNavigate }: TrainingProps) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // Load training courses
       const localTrainings = localStorage.getItem('local_trainings');
       if (localTrainings) {
         const parsed = JSON.parse(localTrainings);
         setTrainings(parsed.filter((t: any) => t.is_active));
       } else {
         const trainRes = await supabase.from('trainings').select('*').eq('is_active', true).order('sort_order');
-        if (trainRes.data && trainRes.data.length > 0) {
-          setTrainings(trainRes.data);
-        } else {
-          setTrainings(FALLBACK_TRAININGS);
-        }
+        setTrainings(trainRes.data && trainRes.data.length > 0 ? trainRes.data : FALLBACK_TRAININGS);
       }
 
-      const progRes = await supabase.from('programmes').select('*').eq('is_active', true).order('category, code');
-      if (progRes.data) setProgrammes(progRes.data);
+      // Load programmes — localStorage first (admin-managed)
+      const localProgs = localStorage.getItem('local_programmes');
+      if (localProgs) {
+        const parsed = JSON.parse(localProgs);
+        setProgrammes(parsed.filter((p: any) => p.is_active !== false));
+      } else {
+        const progRes = await supabase.from('programmes').select('*').eq('is_active', true).order('category, code');
+        if (progRes.data && progRes.data.length > 0) setProgrammes(progRes.data);
+      }
     } catch (e) {
       console.error('Failed to load training data, using fallbacks:', e);
       setTrainings(FALLBACK_TRAININGS);

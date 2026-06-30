@@ -694,10 +694,10 @@ export default function App() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg">
-            Let's Start a <span style={{ color: GOLD }}>Conversation</span>
+            {dbSettings.contact_page_title || "Let's Start a"} <span style={{ color: GOLD }}>Conversation</span>
           </h1>
           <p className="text-blue-100 text-lg sm:text-xl max-w-3xl drop-shadow-md">
-            Contact us today to discuss your training needs.
+            {dbSettings.contact_page_subtitle || 'Contact us today to discuss your training needs.'}
           </p>
         </div>
       </section>

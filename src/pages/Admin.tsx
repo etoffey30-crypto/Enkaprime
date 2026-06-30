@@ -116,6 +116,26 @@ const DEFAULT_TRAININGS = [
   { id: uid(), title: 'Customer Service Excellence', short_summary: 'Turn frontline staff into loyalty builders.', synopsis: 'EQ, active listening, complaint handling, and brand representation.', image_url: 'https://images.pexels.com/photos/3184298/pexels-photo-3184298.jpeg', category: 'Customer Service', duration: '2 Days', is_active: true, sort_order: 3 },
 ];
 
+const DEFAULT_PROGRAMMES = [
+  { id: uid(), code: 'LMT 100', title: 'Leadership Fundamentals & Team Management', days: 3, category: 'Leadership', description: 'Core leadership skills for team leads and managers.', upcoming_date: 'June 10-12, 2026', is_active: true, is_featured: true },
+  { id: uid(), code: 'LMT 101', title: 'Strategic Leadership & Corporate Governance', days: 3, category: 'Leadership', description: 'Strategic thinking, governance and board advisory skills.', upcoming_date: 'July 8-10, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'LMT 102', title: 'Supervisory Skills & People Management', days: 2, category: 'Leadership', description: 'Practical supervisory skills for frontline managers.', upcoming_date: 'June 17-19, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'CST 200', title: 'Customer Service Excellence', days: 2, category: 'Customer Service', description: 'Active listening, complaint handling and service recovery.', upcoming_date: 'June 11-12, 2026', is_active: true, is_featured: true },
+  { id: uid(), code: 'CST 201', title: 'Professional Communication & Business Writing', days: 2, category: 'Customer Service', description: 'Clear, effective written and verbal business communication.', upcoming_date: 'June 15-16, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'HSE 300', title: 'Workplace Health, Safety & Environment (Fundamentals)', days: 2, category: 'HSE', description: 'Core HSE principles, hazard identification and incident reporting.', upcoming_date: 'June 8-9, 2026', is_active: true, is_featured: true },
+  { id: uid(), code: 'HSE 301', title: 'ISO 45001 — Occupational Health & Safety Lead Implementer', days: 3, category: 'HSE', description: 'Design and maintain OHS management systems to ISO 45001.', upcoming_date: 'July 15-17, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'HSE 303', title: 'Risk Assessment & Permit to Work Systems', days: 2, category: 'HSE', description: 'Hazard identification, risk matrices and PTW procedures.', upcoming_date: 'June 15-16, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'AFT 400', title: 'Finance for Non-Finance Managers', days: 3, category: 'Finance', description: 'Read financial statements, manage budgets and track KPIs.', upcoming_date: 'June 10-12, 2026', is_active: true, is_featured: true },
+  { id: uid(), code: 'AFT 401', title: 'Budget Preparation & Cost Control', days: 2, category: 'Finance', description: 'Build and manage departmental budgets with confidence.', upcoming_date: 'July 13-14, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'AFT 402', title: 'Procurement & Supply Chain Management', days: 3, category: 'Finance', description: 'Procurement best practices, supplier management and contract fundamentals.', upcoming_date: 'June 24-26, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'DDT 500', title: 'Advanced Records Management & Digitalisation', days: 3, category: 'Digital', description: 'EDMS configuration, metadata design and document workflow automation.', upcoming_date: 'June 15-17, 2026', is_active: true, is_featured: true },
+  { id: uid(), code: 'DDT 501', title: 'Asset Verification & Register Development', days: 2, category: 'Digital', description: 'Physical asset counting, QR/barcode tagging and register build.', upcoming_date: 'June 22-24, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'DDT 502', title: 'ISO 9001:2015 QMS Lead Implementer', days: 5, category: 'Digital', description: 'Full QMS design, internal audit and certification readiness.', upcoming_date: 'June 23-27, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'GEN 600', title: 'Report Writing & Business Communication', days: 3, category: 'General', description: 'Structured report formats, executive summaries and professional writing.', upcoming_date: 'June 17-19, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'GEN 601', title: 'Time Management & Personal Effectiveness', days: 2, category: 'General', description: 'Prioritisation, delegation and high-performance work habits.', upcoming_date: 'June 22-23, 2026', is_active: true, is_featured: false },
+  { id: uid(), code: 'GEN 602', title: 'Project Management Fundamentals', days: 3, category: 'General', description: 'Project planning, monitoring, risk management and closeout.', upcoming_date: 'June 25-27, 2026', is_active: true, is_featured: false },
+];
+
 // ── sub-components ────────────────────────────────────────────────────────────
 function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
   return (
@@ -234,6 +254,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
   const [trainings, setTrainings] = useState<any[]>(() => ls.get('local_trainings', DEFAULT_TRAININGS));
   const [contacts, setContacts] = useState<any[]>(() => ls.get('local_contacts', []));
   const [visitors, setVisitors] = useState<any[]>(() => ls.get('local_visitors', []));
+  const [programmes, setProgrammes] = useState<any[]>(() => ls.get('local_programmes', DEFAULT_PROGRAMMES));
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -263,6 +284,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
   const saveServices = (s: any[]) => { setServices(s); ls.set('local_services', s); };
   const saveBlogs = (b: any[]) => { setBlogs(b); ls.set('local_blogs_cms', b); ls.set('local_blogs', b); };
   const saveTrainings = (t: any[]) => { setTrainings(t); ls.set('local_trainings', t); };
+  const saveProgrammes = (p: any[]) => { setProgrammes(p); ls.set('local_programmes', p); };
 
   // track visitor on mount
   useEffect(() => {
@@ -312,7 +334,8 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     { id: 'home', label: 'Home Page', icon: Home },
     { id: 'about', label: 'About Page', icon: Info },
     { id: 'services', label: 'Services', icon: Briefcase },
-    { id: 'trainings', label: 'Trainings', icon: GraduationCap },
+    { id: 'trainings', label: 'Training Courses', icon: GraduationCap },
+    { id: 'programmes', label: 'Training Calendar', icon: BookOpen },
     { id: 'blogs', label: 'Blogs', icon: BookOpen },
     { id: 'contact', label: 'Contact', icon: Phone },
     { id: 'visitors', label: 'Visitors & Leads', icon: Users },
@@ -369,6 +392,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
           {tab === 'about' && <AboutTab settings={settings} saveSettings={saveSettings} />}
           {tab === 'services' && <ServicesTab services={services} saveServices={saveServices} showToast={showToast} />}
           {tab === 'trainings' && <TrainingsTab trainings={trainings} saveTrainings={saveTrainings} showToast={showToast} />}
+          {tab === 'programmes' && <ProgrammesTab programmes={programmes} saveProgrammes={saveProgrammes} showToast={showToast} />}
           {tab === 'blogs' && <BlogsTab blogs={blogs} saveBlogs={saveBlogs} showToast={showToast} />}
           {tab === 'contact' && <ContactTab settings={settings} saveSettings={saveSettings} contacts={contacts} />}
           {tab === 'visitors' && <VisitorsTab visitors={visitors} contacts={contacts} />}
@@ -949,6 +973,133 @@ function SiteSettingsTab({ settings, saveSettings }: any) {
         </label>
       </Section>
       <SaveBar onSave={() => saveSettings(form)} />
+    </div>
+  );
+}
+
+// ── PROGRAMMES TAB (Training Calendar) ───────────────────────────────────────
+function ProgrammesTab({ programmes, saveProgrammes, showToast }: any) {
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState<any>({});
+  const [filterCat, setFilterCat] = useState('All');
+  const CATS = ['All', 'Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'];
+
+  const openEdit = (p: any) => { setEditing(p); setForm({ ...p }); };
+  const openNew = () => {
+    const n = { id: uid(), code: '', title: '', days: 1, category: 'General', description: '', upcoming_date: '', is_active: true, is_featured: false };
+    setEditing(n); setForm(n);
+  };
+  const handleSave = () => {
+    if (!form.code?.trim() || !form.title?.trim()) { showToast('Code and title are required', 'error'); return; }
+    const updated = programmes.find((p: any) => p.id === form.id)
+      ? programmes.map((p: any) => p.id === form.id ? form : p)
+      : [...programmes, form];
+    saveProgrammes(updated);
+    setEditing(null);
+    showToast('Programme saved');
+  };
+  const handleDelete = (id: string) => {
+    if (!confirm('Delete this programme?')) return;
+    saveProgrammes(programmes.filter((p: any) => p.id !== id));
+    showToast('Deleted');
+  };
+  const toggleActive = (id: string) => saveProgrammes(programmes.map((p: any) => p.id === id ? { ...p, is_active: !p.is_active } : p));
+  const toggleFeatured = (id: string) => saveProgrammes(programmes.map((p: any) => p.id === id ? { ...p, is_featured: !p.is_featured } : p));
+
+  const filtered = filterCat === 'All' ? programmes : programmes.filter((p: any) => p.category === filterCat);
+
+  if (editing) return (
+    <div className="max-w-2xl space-y-5">
+      <button onClick={() => setEditing(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-800">← Back to Calendar</button>
+      <h2 className="text-xl font-bold" style={{ color: NAVY }}>{programmes.find((p: any) => p.id === form.id) ? 'Edit Programme' : 'New Programme'}</h2>
+      <Section title="Programme Details">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Programme Code" value={form.code || ''} onChange={v => setForm((f: any) => ({ ...f, code: v }))} />
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Days</label>
+            <input type="number" min={1} max={10} value={form.days || 1} onChange={e => setForm((f: any) => ({ ...f, days: parseInt(e.target.value) || 1 }))}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800" />
+          </div>
+        </div>
+        <Field label="Title" value={form.title || ''} onChange={v => setForm((f: any) => ({ ...f, title: v }))} />
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Category</label>
+          <select value={form.category || 'General'} onChange={e => setForm((f: any) => ({ ...f, category: e.target.value }))}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800">
+            {CATS.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <Field label="Upcoming Date (e.g. June 17-19, 2026)" value={form.upcoming_date || ''} onChange={v => setForm((f: any) => ({ ...f, upcoming_date: v }))} />
+        <Field label="Description" value={form.description || ''} onChange={v => setForm((f: any) => ({ ...f, description: v }))} multiline rows={3} />
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={form.is_active} onChange={e => setForm((f: any) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-yellow-500" />
+            Active
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={form.is_featured} onChange={e => setForm((f: any) => ({ ...f, is_featured: e.target.checked }))} className="w-4 h-4 accent-yellow-500" />
+            Featured
+          </label>
+        </div>
+      </Section>
+      <div className="flex gap-3">
+        <button onClick={handleSave} className="px-6 py-2.5 rounded-xl text-white font-bold" style={{ background: NAVY }}>Save</button>
+        <button onClick={() => setEditing(null)} className="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold">Cancel</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: NAVY }}>Training Calendar ({programmes.length} programmes)</h2>
+          <p className="text-xs text-gray-400 mt-0.5">These appear in the Upcoming Training section of the website</p>
+        </div>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold" style={{ background: NAVY }}>
+          <Plus size={16} /> Add Programme
+        </button>
+      </div>
+
+      {/* Category filter */}
+      <div className="flex flex-wrap gap-2">
+        {CATS.map(c => (
+          <button key={c} onClick={() => setFilterCat(c)}
+            className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+            style={filterCat === c ? { background: NAVY, color: 'white' } : { background: '#f3f4f6', color: '#374151' }}>
+            {c} {c !== 'All' && `(${programmes.filter((p: any) => p.category === c).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Programme list */}
+      <div className="space-y-2">
+        {filtered.map((p: any) => (
+          <div key={p.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-100 text-slate-700">{p.code}</span>
+                <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: '#dbeafe', color: '#1d4ed8' }}>{p.category}</span>
+                <span className="text-xs text-gray-500">{p.days} {p.days === 1 ? 'Day' : 'Days'}</span>
+                {p.upcoming_date && <span className="text-xs text-gray-400">📅 {p.upcoming_date}</span>}
+              </div>
+              <div className="font-semibold text-sm text-gray-800 mt-1">{p.title}</div>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button onClick={() => toggleFeatured(p.id)}
+                className={`px-2 py-1 rounded-full text-[10px] font-bold ${p.is_featured ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
+                ★
+              </button>
+              <button onClick={() => toggleActive(p.id)}
+                className={`px-2 py-1 rounded-full text-[10px] font-bold ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                {p.is_active ? 'On' : 'Off'}
+              </button>
+              <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-gray-100"><Edit3 size={14} className="text-gray-500" /></button>
+              <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-50"><Trash2 size={14} className="text-red-400" /></button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
