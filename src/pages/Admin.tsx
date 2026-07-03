@@ -841,8 +841,8 @@ function ContactTab({ settings, saveSettings, contacts }: any) {
         <Field label="Page Title" value={s('contact_page_title') || "Let's Start a Conversation"} onChange={v => set('contact_page_title', v)} />
         <Field label="Page Subtitle" value={s('contact_page_subtitle') || 'Contact us today to discuss your needs.'} onChange={v => set('contact_page_subtitle', v)} />
         <Field label="Email Address" value={s('contact_email')} onChange={v => set('contact_email', v)} />
-        <Field label="Phone Number" value={s('contact_phone')} onChange={v => set('contact_phone', v)} />
-        <Field label="Location / Address" value={s('contact_location')} onChange={v => set('contact_location', v)} />
+        <Field label="Phone Number" value={s('contact_phone') || '0200 769 146'} onChange={v => set('contact_phone', v)} />
+        <Field label="Location / Address" value={s('contact_location') || 'In-House — Nationwide Delivery'} onChange={v => set('contact_location', v)} />
       </Section>
       <SaveBar onSave={() => saveSettings(form)} />
 

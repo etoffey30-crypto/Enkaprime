@@ -5,7 +5,7 @@ import './index.css';
 
 // Clear any stale localStorage settings that override code changes
 // Remove this block once you have a proper CMS save flow
-const SETTINGS_VERSION = '5';
+const SETTINGS_VERSION = '6';
 if (localStorage.getItem('enka_settings_version') !== SETTINGS_VERSION) {
   localStorage.removeItem('local_settings');
   localStorage.removeItem('local_settings_map');

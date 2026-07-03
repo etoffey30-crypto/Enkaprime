@@ -739,7 +739,7 @@ export default function App() {
               <div className="space-y-4">
                 {[
                   { icon: Mail, label: 'Email Us', value: dbSettings.contact_email || 'info@enkaprime.com', href: `mailto:${dbSettings.contact_email || 'info@enkaprime.com'}` },
-                  { icon: Phone, label: 'Call Us', value: dbSettings.contact_phone || '0200 769 146', href: `tel:${dbSettings.contact_phone || '0200769146'}` },
+                  { icon: Phone, label: 'Call Us', value: dbSettings.contact_phone || '0200 769 146', href: `tel:${(dbSettings.contact_phone || '0200769146').replace(/\s+/g, '')}` },
                   { icon: MapPin, label: 'Location', value: dbSettings.contact_location || 'In-House — Nationwide Delivery', href: '#' },
                 ].map(({ icon: Icon, label, value, href }) => (
                   <a
