@@ -34,13 +34,13 @@ const CATEGORIES = ['All', 'Leadership', 'Customer Service', 'HSE', 'Finance', '
 const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
 
-function getPageFromHash(): string {
-  const hash = window.location.hash.replace('#', '');
-  return hash || 'home';
+function getPageFromPath(): string {
+  const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+  return path || 'home';
 }
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState(getPageFromHash);
+  const [currentPage, setCurrentPage] = useState(getPageFromPath);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [formData, setFormData] = useState({ name: '', email: '', organization: '', message: '' });
@@ -49,11 +49,11 @@ export default function App() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [announcementDismissed, setAnnouncementDismissed] = useState(false);
 
-  // Listen for hash changes (back/forward browser buttons)
+  // Listen for browser back/forward navigation
   useEffect(() => {
-    const onHashChange = () => setCurrentPage(getPageFromHash());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const onPopState = () => setCurrentPage(getPageFromPath());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // Database-driven data
@@ -418,15 +418,33 @@ export default function App() {
         messageRef.current.value = prefilledMessage;
       }
     }
-    window.location.hash = page;
+    // Use path-based routing for SEO
+    const url = page === 'home' ? '/' : `/${page}`;
+    window.history.pushState(null, '', url);
     setCurrentPage(page);
+
+    // Update page title and canonical for SEO
+    const titles: Record<string, string> = {
+      home: 'Enka Prime Consulting Ltd | Business Advisory, Records Digitalisation & Corporate Training',
+      about: 'About Us | Enka Prime Consulting Ltd',
+      services: 'Our Services | Records Digitalisation, Asset Tagging, ISO & Training | Enka Prime',
+      'service-records': 'Records Digitalisation & Document Management | Enka Prime Consulting',
+      'service-asset': 'Asset Tagging & Register Development | Enka Prime Consulting',
+      'service-iso': 'ISO Implementation & Compliance Support | Enka Prime Consulting',
+      training: 'Training & Capacity Building | Corporate Programmes | Enka Prime',
+      blogs: 'Corporate Insights & Blogs | Enka Prime Consulting',
+      contact: 'Contact Us | Enka Prime Consulting Ltd',
+    };
+    document.title = titles[page] || titles.home;
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute('href', `https://enkaprime.com${url}`);
+
     // Track page visit in localStorage and Supabase
     try {
-      const visit = { id: Math.random().toString(36).slice(2), time: new Date().toISOString(), page: '#' + page, ua: navigator.userAgent.slice(0, 80) };
+      const visit = { id: Math.random().toString(36).slice(2), time: new Date().toISOString(), page: url, ua: navigator.userAgent.slice(0, 80) };
       const visits = JSON.parse(localStorage.getItem('local_visitors') || '[]');
       localStorage.setItem('local_visitors', JSON.stringify([...visits, visit].slice(-500)));
-      // Fire-and-forget to Supabase
-      supabase.from('page_visits').insert({ page: '#' + page, user_agent: navigator.userAgent.slice(0, 200), referrer: document.referrer.slice(0, 200) }).then(() => {});
+      supabase.from('page_visits').insert({ page: url, user_agent: navigator.userAgent.slice(0, 200), referrer: document.referrer.slice(0, 200) }).then(() => {});
     } catch (e) { /* ignore */ }
     if (page !== 'admin') loadPublicData();
   };

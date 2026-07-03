@@ -4,30 +4,34 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/biglogo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Enka Prime — Business Advisory, Records Digitalisation &amp; Training</title>
-    <meta name="description" content="Enka Prime provides business advisory, records digitalisation, asset tagging, corporate training and ISO implementation services to improve organisational performance and compliance." />
-    <meta property="og:title" content="Enka Prime — Business Advisory, Records Digitalisation &amp; Training" />
-    <meta property="og:description" content="Enka Prime provides business advisory, records digitalisation, asset tagging, corporate training and ISO implementation services to improve organisational performance and compliance." />
+    <title>Enka Prime Consulting Ltd | Business Advisory, Records Digitalisation &amp; Corporate Training</title>
+    <meta name="description" content="Enka Prime Consulting Ltd provides business advisory, records digitalisation, asset tagging, ISO implementation and corporate training services across Ghana and West Africa." />
+    <meta name="keywords" content="corporate training Ghana, records digitalisation, asset tagging, ISO implementation, business advisory, capacity building, West Africa" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://enkaprime.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://enkaprime.com/" />
+    <meta property="og:title" content="Enka Prime Consulting Ltd | Business Advisory &amp; Corporate Training Ghana" />
+    <meta property="og:description" content="Professional consulting and corporate training firm helping organisations improve operational systems, compliance, and workforce capability." />
     <meta property="og:image" content="https://enkaprime.com/enkaprime-logo.png" />
+    <meta property="og:site_name" content="Enka Prime Consulting Ltd" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Enka Prime — Business Advisory, Records Digitalisation &amp; Training" />
-    <meta name="twitter:description" content="Enka Prime provides business advisory, records digitalisation, asset tagging, corporate training and ISO implementation services to improve organisational performance and compliance." />
+    <meta name="twitter:title" content="Enka Prime Consulting Ltd | Business Advisory &amp; Corporate Training Ghana" />
+    <meta name="twitter:description" content="Professional consulting and corporate training firm helping organisations improve operational systems, compliance, and workforce capability." />
     <meta name="twitter:image" content="https://enkaprime.com/enkaprime-logo.png" />
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Restore path from sessionStorage after 404 redirect
+      (function() {
+        var redirect = sessionStorage.getItem('spa_redirect');
+        if (redirect) {
+          sessionStorage.removeItem('spa_redirect');
+          window.history.replaceState(null, '', redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Convert path-based routes (e.g. /admin) to hash routes (/#admin)
-      // This allows the SPA to work when served from a custom domain.
-      var path = window.location.pathname;
-
-      // If it's not the root and it doesn't look like an asset or file, redirect to hash route
-      if (path !== '/' && !path.includes('/assets/') && !path.includes('.')) {
-        var route = path.slice(1); // remove leading slash
-        window.location.replace('/#' + route);
-      }
-    </script>
-
   </body>
 </html>
