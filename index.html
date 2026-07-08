@@ -20,16 +20,6 @@
     <meta name="twitter:description" content="Professional consulting and corporate training firm helping organisations improve operational systems, compliance, and workforce capability." />
     <meta name="twitter:image" content="https://enkaprime.com/enkaprime-logo.png" />
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Restore path from sessionStorage after 404 redirect
-      (function() {
-        var redirect = sessionStorage.getItem('spa_redirect');
-        if (redirect) {
-          sessionStorage.removeItem('spa_redirect');
-          window.history.replaceState(null, '', redirect);
-        }
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -35,8 +35,10 @@ const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
 
 function getPageFromPath(): string {
+  // Support both hash routing (enkaprime.com/#about) and path routing (/about)
+  const hash = window.location.hash.replace('#', '');
   const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
-  return path || 'home';
+  return hash || path || 'home';
 }
 
 export default function App() {
@@ -49,11 +51,15 @@ export default function App() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [announcementDismissed, setAnnouncementDismissed] = useState(false);
 
-  // Listen for browser back/forward navigation
+  // Listen for both hash and popstate navigation
   useEffect(() => {
-    const onPopState = () => setCurrentPage(getPageFromPath());
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    const onNav = () => setCurrentPage(getPageFromPath());
+    window.addEventListener('hashchange', onNav);
+    window.addEventListener('popstate', onNav);
+    return () => {
+      window.removeEventListener('hashchange', onNav);
+      window.removeEventListener('popstate', onNav);
+    };
   }, []);
 
   // Database-driven data
@@ -418,9 +424,8 @@ export default function App() {
         messageRef.current.value = prefilledMessage;
       }
     }
-    // Use path-based routing for SEO
-    const url = page === 'home' ? '/' : `/${page}`;
-    window.history.pushState(null, '', url);
+    // Use hash routing — reliable on GitHub Pages, no 404 on refresh
+    window.location.hash = page === 'home' ? '' : page;
     setCurrentPage(page);
 
     // Update page title and canonical for SEO
