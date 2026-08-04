@@ -845,72 +845,68 @@ export default function App() {
     </div>
   );
 
-  // Announcement bar component
+  // Announcement bar component — style: dark gradient, "Click here" in gold, rest in white
   const AnnouncementBar = () => {
-    // Prefer a download_banner stored as JSON in site_settings.download_banner
     try {
       const raw = dbSettings.download_banner;
       if (raw) {
         const banner = JSON.parse(raw);
         if (banner && banner.is_active) {
-          // Use uploaded file data URL or external link
           const href = banner.file_data || banner.cta_link || null;
           const fileName = banner.file_name || 'enkaprime-brochure';
+          const linkText = banner.link_text || 'Click here';
+          const restText = banner.text || 'to download the 2026 training calendar';
           return (
-            <div className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in">
-              <div className="flex-1 flex justify-center">
+            <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 shadow-md animate-fade-in"
+              style={{ height: '44px', background: 'linear-gradient(90deg, #0a1628 0%, #0F2044 60%, #1a3a6b 100%)' }}>
+              <div className="flex-1 flex items-center justify-center gap-1.5 text-sm">
                 {href ? (
-                  <a
-                    href={href}
-                    download={banner.file_data ? fileName : undefined}
-                    target={banner.file_data ? undefined : '_blank'}
-                    rel="noopener noreferrer"
-                    className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5"
-                  >
-                    <span>{banner.text || 'Click to download our corporate brochure'}</span>
-                    <ArrowRight size={14} className="animate-pulse" />
-                  </a>
+                  <>
+                    <a href={href} download={banner.file_data ? fileName : undefined}
+                      target={banner.file_data ? undefined : '_blank'} rel="noopener noreferrer"
+                      className="font-bold underline underline-offset-2 hover:opacity-80 transition-opacity"
+                      style={{ color: '#C9A84C' }}>
+                      {linkText}
+                    </a>
+                    <span className="text-white font-medium">{restText}</span>
+                  </>
                 ) : (
-                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">{banner.text || 'Click to download'}</span>
+                  <span className="text-white font-medium">{linkText} {restText}</span>
                 )}
               </div>
-              <button onClick={() => setAnnouncementDismissed(true)} className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0" aria-label="Dismiss">
-                <X size={16} />
+              <button onClick={() => setAnnouncementDismissed(true)}
+                className="p-1 rounded-full hover:bg-white/10 transition-colors flex-shrink-0 text-white/60 hover:text-white"
+                aria-label="Dismiss">
+                <X size={15} />
               </button>
             </div>
           );
         }
       }
-    } catch (e) {
-      // ignore parse errors and fallback to legacy announcement
-    }
+    } catch (e) { /* ignore */ }
 
     if (!showAnnouncement) return null;
     return (
-      <div 
-        className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in"
-      >
-        <div className="flex-1 flex justify-center">
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 shadow-md animate-fade-in"
+        style={{ height: '44px', background: 'linear-gradient(90deg, #0a1628 0%, #0F2044 60%, #1a3a6b 100%)' }}>
+        <div className="flex-1 flex items-center justify-center gap-1.5 text-sm">
           {dbSettings.announcement_bar_link ? (
-            <a 
-              href={dbSettings.announcement_bar_link} 
-              className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5"
-            >
-              <span>{dbSettings.announcement_bar_text || 'Click here to learn more'}</span>
-              <ArrowRight size={14} className="animate-pulse" />
-            </a>
+            <>
+              <a href={dbSettings.announcement_bar_link}
+                className="font-bold underline underline-offset-2 hover:opacity-80 transition-opacity"
+                style={{ color: '#C9A84C' }}>
+                Click here
+              </a>
+              <span className="text-white font-medium">{dbSettings.announcement_bar_text || 'to learn more'}</span>
+            </>
           ) : (
-            <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">
-              {dbSettings.announcement_bar_text}
-            </span>
+            <span className="text-white font-medium">{dbSettings.announcement_bar_text}</span>
           )}
         </div>
-        <button 
-          onClick={() => setAnnouncementDismissed(true)}
-          className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0"
-          aria-label="Dismiss announcement"
-        >
-          <X size={16} />
+        <button onClick={() => setAnnouncementDismissed(true)}
+          className="p-1 rounded-full hover:bg-white/10 transition-colors flex-shrink-0 text-white/60 hover:text-white"
+          aria-label="Dismiss">
+          <X size={15} />
         </button>
       </div>
     );

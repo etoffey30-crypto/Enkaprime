@@ -1001,7 +1001,8 @@ function SiteSettingsTab({ settings, saveSettings }: any) {
         </div>
         <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.svg" className="hidden" onChange={handleFileUpload} />
 
-        <Field label="Banner Text" value={banner.text || 'Click to download our corporate brochure'} onChange={v => setBanner({ ...banner, text: v })} />
+        <Field label="'Click here' Link Text" value={banner.link_text || 'Click here'} onChange={v => setBanner({ ...banner, link_text: v })} />
+        <Field label="Rest of message text" value={banner.text || 'to download the 2026 training calendar'} onChange={v => setBanner({ ...banner, text: v })} />
         <Field label="Button / Link Text" value={banner.cta_text || 'Download Now'} onChange={v => setBanner({ ...banner, cta_text: v })} />
 
         {/* Or use external URL instead of uploaded file */}
@@ -1020,9 +1021,13 @@ function SiteSettingsTab({ settings, saveSettings }: any) {
 
         {/* Preview */}
         {banner.is_active && (
-          <div className="rounded-xl p-3 flex items-center justify-between text-xs font-bold" style={{ background: GOLD, color: NAVY }}>
-            <span>{banner.text || 'Click to download our corporate brochure'} →</span>
-            <span className="opacity-60">× dismiss</span>
+          <div className="rounded-xl p-3 flex items-center justify-between text-sm"
+            style={{ background: 'linear-gradient(90deg, #0a1628 0%, #0F2044 60%, #1a3a6b 100%)' }}>
+            <span>
+              <span className="font-bold underline" style={{ color: '#C9A84C' }}>{banner.link_text || 'Click here'}</span>
+              <span className="text-white ml-1">{banner.text || 'to download the 2026 training calendar'}</span>
+            </span>
+            <span className="text-white/40 text-xs">× preview</span>
           </div>
         )}
       </div>
