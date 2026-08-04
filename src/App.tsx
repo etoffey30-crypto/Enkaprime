@@ -35,9 +35,9 @@ const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
 
 function getPageFromPath(): string {
-  // Support both hash routing (enkaprime.com/#about) and path routing (/about)
-  const hash = window.location.hash.replace('#', '');
-  const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+  // Check hash first (legacy), then pathname
+  const hash = window.location.hash.replace('#', '').trim();
+  const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '').trim();
   return hash || path || 'home';
 }
 
@@ -424,8 +424,9 @@ export default function App() {
         messageRef.current.value = prefilledMessage;
       }
     }
-    // Use hash routing — reliable on GitHub Pages, no 404 on refresh
-    window.location.hash = page === 'home' ? '' : page;
+    // Use clean URL routing with pushState — 404.html handles refreshes
+    const url = page === 'home' ? '/' : `/${page}`;
+    window.history.pushState(null, '', url);
     setCurrentPage(page);
 
     // Update page title and canonical for SEO
@@ -852,19 +853,28 @@ export default function App() {
       if (raw) {
         const banner = JSON.parse(raw);
         if (banner && banner.is_active) {
+          // Use uploaded file data URL or external link
+          const href = banner.file_data || banner.cta_link || null;
+          const fileName = banner.file_name || 'enkaprime-brochure';
           return (
             <div className="fixed top-0 left-0 right-0 z-50 h-10 bg-[#C9A84C] text-[#0F2044] flex items-center justify-between px-4 sm:px-6 shadow-md transition-all duration-300 animate-fade-in">
               <div className="flex-1 flex justify-center">
-                {banner.cta_link ? (
-                  <a href={banner.cta_link} className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5">
-                    <span>{banner.text || 'Click to download'}</span>
+                {href ? (
+                  <a
+                    href={href}
+                    download={banner.file_data ? fileName : undefined}
+                    target={banner.file_data ? undefined : '_blank'}
+                    rel="noopener noreferrer"
+                    className="text-xs sm:text-sm font-bold uppercase tracking-wide hover:underline flex items-center gap-1.5"
+                  >
+                    <span>{banner.text || 'Click to download our corporate brochure'}</span>
                     <ArrowRight size={14} className="animate-pulse" />
                   </a>
                 ) : (
                   <span className="text-xs sm:text-sm font-bold uppercase tracking-wide">{banner.text || 'Click to download'}</span>
                 )}
               </div>
-              <button onClick={() => setAnnouncementDismissed(true)} className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0" aria-label="Dismiss announcement">
+              <button onClick={() => setAnnouncementDismissed(true)} className="p-1 rounded-full hover:bg-black/10 transition-colors text-[#0F2044] flex-shrink-0" aria-label="Dismiss">
                 <X size={16} />
               </button>
             </div>

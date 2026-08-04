@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Home, Info, Briefcase, GraduationCap, BookOpen,
   Phone, Settings, LogOut, Menu, X, Save, Plus, Trash2, Edit3,
   Image as ImageIcon, Users, Eye, CheckCircle, AlertCircle,
-  ChevronDown, ChevronUp, BarChart3, Mail, MessageSquare, Clock
+  ChevronDown, ChevronUp, BarChart3, Mail, MessageSquare, Clock, Download
 } from 'lucide-react';
 
 const GOLD = '#C9A84C';
@@ -952,8 +952,81 @@ function SiteSettingsTab({ settings, saveSettings }: any) {
   const [form, setForm] = useState({ ...settings });
   const s = (k: string) => form[k] || '';
   const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  // Parse download_banner JSON
+  const getBanner = () => {
+    try { return JSON.parse(form.download_banner || '{}'); } catch { return {}; }
+  };
+  const setBanner = (b: any) => set('download_banner', JSON.stringify(b));
+  const banner = getBanner();
+
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setBanner({
+        ...banner,
+        file_data: reader.result as string,
+        file_name: file.name,
+        file_type: file.type,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-6 max-w-3xl">
+
+      {/* ── DOWNLOAD / BROCHURE BANNER ── */}
+      <div className="bg-white rounded-2xl border-2 border-yellow-200 shadow-sm p-6 space-y-4">
+        <div className="flex items-center gap-2 border-b pb-3">
+          <Download size={18} style={{ color: GOLD }} />
+          <h3 className="font-bold text-sm uppercase tracking-wider text-gray-700">Download Banner / Brochure</h3>
+        </div>
+        <p className="text-xs text-gray-400">Upload a PDF, image, or document. A banner will appear at the top of the site with a download button.</p>
+
+        {/* Upload area */}
+        <div
+          onClick={() => fileRef.current?.click()}
+          className="w-full border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center gap-2 cursor-pointer hover:border-yellow-400 transition-colors bg-gray-50"
+        >
+          <Download size={28} className="text-gray-300" />
+          <span className="text-sm font-semibold text-gray-500">
+            {banner.file_name ? `✓ ${banner.file_name}` : 'Click to upload PDF, image, or document'}
+          </span>
+          <span className="text-xs text-gray-400">PDF, JPG, PNG, DOCX — stored locally</span>
+        </div>
+        <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.svg" className="hidden" onChange={handleFileUpload} />
+
+        <Field label="Banner Text" value={banner.text || 'Click to download our corporate brochure'} onChange={v => setBanner({ ...banner, text: v })} />
+        <Field label="Button / Link Text" value={banner.cta_text || 'Download Now'} onChange={v => setBanner({ ...banner, cta_text: v })} />
+
+        {/* Or use external URL instead of uploaded file */}
+        <Field label="External URL (optional — overrides uploaded file)" value={banner.cta_link || ''} onChange={v => setBanner({ ...banner, cta_link: v })} />
+
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={banner.is_active === true} onChange={e => setBanner({ ...banner, is_active: e.target.checked })} className="w-4 h-4 accent-yellow-500" />
+            Show banner on site
+          </label>
+          {banner.file_data && (
+            <button type="button" onClick={() => setBanner({ ...banner, file_data: undefined, file_name: undefined })}
+              className="text-xs text-red-500 hover:underline">Remove file</button>
+          )}
+        </div>
+
+        {/* Preview */}
+        {banner.is_active && (
+          <div className="rounded-xl p-3 flex items-center justify-between text-xs font-bold" style={{ background: GOLD, color: NAVY }}>
+            <span>{banner.text || 'Click to download our corporate brochure'} →</span>
+            <span className="opacity-60">× dismiss</span>
+          </div>
+        )}
+      </div>
+
       <Section title="Site Identity">
         <ImageUpload label="Header Logo" value={s('header_logo')} onChange={v => set('header_logo', v)} />
         <ImageUpload label="Footer Logo (white)" value={s('footer_logo')} onChange={v => set('footer_logo', v)} />
@@ -965,11 +1038,11 @@ function SiteSettingsTab({ settings, saveSettings }: any) {
         <Field label="LinkedIn URL" value={s('linkedin_url')} onChange={v => set('linkedin_url', v)} />
         <Field label="WhatsApp URL" value={s('whatsapp_url')} onChange={v => set('whatsapp_url', v)} />
       </Section>
-      <Section title="Announcement Bar">
+      <Section title="Legacy Announcement Bar">
         <Field label="Announcement Text" value={s('announcement_text') || 'June 2026 Training Programmes Now Open — Enroll Today'} onChange={v => set('announcement_text', v)} />
         <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer">
           <input type="checkbox" checked={s('announcement_bar_enabled') === 'true'} onChange={e => set('announcement_bar_enabled', e.target.checked ? 'true' : 'false')} className="w-4 h-4 accent-yellow-500" />
-          Show Announcement Bar
+          Show Announcement Bar (legacy — use Download Banner above instead)
         </label>
       </Section>
       <SaveBar onSave={() => saveSettings(form)} />
