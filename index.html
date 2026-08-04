@@ -19,8 +19,15 @@
     <meta name="twitter:title" content="Enka Prime Consulting Ltd | Business Advisory &amp; Corporate Training Ghana" />
     <meta name="twitter:description" content="Professional consulting and corporate training firm helping organisations improve operational systems, compliance, and workforce capability." />
     <meta name="twitter:image" content="https://enkaprime.com/enkaprime-logo.png" />
-    <script type="module" crossorigin src="/assets/index-D8bWD2VO.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-juhHREp-.css">
+    <script>
+      // Restore SPA path after 404 redirect
+      (function() {
+        var r = sessionStorage.getItem('spa_redirect');
+        if (r) { sessionStorage.removeItem('spa_redirect'); window.history.replaceState(null,'',r); }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DTZsSr2t.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DJHBuf22.css">
   </head>
   <body>
     <div id="root"></div>
