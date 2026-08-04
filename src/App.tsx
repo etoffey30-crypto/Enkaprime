@@ -847,64 +847,57 @@ export default function App() {
 
   // Announcement bar component — style: dark gradient, "Click here" in gold, rest in white
   const AnnouncementBar = () => {
+    if (announcementDismissed) return null;
+
+    // Parse banner from settings, or use built-in default
+    let banner: any = {
+      is_active: true,
+      link_text: 'Click here',
+      text: 'to download the 2026 Enka Prime Training Calendar',
+      cta_link: '',
+      file_data: '',
+      file_name: '',
+    };
     try {
       const raw = dbSettings.download_banner;
       if (raw) {
-        const banner = JSON.parse(raw);
-        if (banner && banner.is_active) {
-          const href = banner.file_data || banner.cta_link || null;
-          const fileName = banner.file_name || 'enkaprime-brochure';
-          const linkText = banner.link_text || 'Click here';
-          const restText = banner.text || 'to download the 2026 training calendar';
-          return (
-            <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 shadow-md animate-fade-in"
-              style={{ height: '44px', background: 'linear-gradient(90deg, #0a1628 0%, #0F2044 60%, #1a3a6b 100%)' }}>
-              <div className="flex-1 flex items-center justify-center gap-1.5 text-sm">
-                {href ? (
-                  <>
-                    <a href={href} download={banner.file_data ? fileName : undefined}
-                      target={banner.file_data ? undefined : '_blank'} rel="noopener noreferrer"
-                      className="font-bold underline underline-offset-2 hover:opacity-80 transition-opacity"
-                      style={{ color: '#C9A84C' }}>
-                      {linkText}
-                    </a>
-                    <span className="text-white font-medium">{restText}</span>
-                  </>
-                ) : (
-                  <span className="text-white font-medium">{linkText} {restText}</span>
-                )}
-              </div>
-              <button onClick={() => setAnnouncementDismissed(true)}
-                className="p-1 rounded-full hover:bg-white/10 transition-colors flex-shrink-0 text-white/60 hover:text-white"
-                aria-label="Dismiss">
-                <X size={15} />
-              </button>
-            </div>
-          );
-        }
+        const parsed = JSON.parse(raw);
+        if (parsed) banner = parsed;
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* use default */ }
 
-    if (!showAnnouncement) return null;
+    if (!banner.is_active) return null;
+
+    const href = banner.file_data || banner.cta_link || null;
+    const fileName = banner.file_name || 'enkaprime-brochure';
+    const linkText = banner.link_text || 'Click here';
+    const restText = banner.text || 'to download the 2026 Enka Prime Training Calendar';
+
     return (
       <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 shadow-md animate-fade-in"
         style={{ height: '44px', background: 'linear-gradient(90deg, #0a1628 0%, #0F2044 60%, #1a3a6b 100%)' }}>
         <div className="flex-1 flex items-center justify-center gap-1.5 text-sm">
-          {dbSettings.announcement_bar_link ? (
+          {href ? (
             <>
-              <a href={dbSettings.announcement_bar_link}
+              <a href={href}
+                download={banner.file_data ? fileName : undefined}
+                target={banner.file_data ? undefined : '_blank'}
+                rel="noopener noreferrer"
                 className="font-bold underline underline-offset-2 hover:opacity-80 transition-opacity"
                 style={{ color: '#C9A84C' }}>
-                Click here
+                {linkText}
               </a>
-              <span className="text-white font-medium">{dbSettings.announcement_bar_text || 'to learn more'}</span>
+              <span className="text-white font-medium">{restText}</span>
             </>
           ) : (
-            <span className="text-white font-medium">{dbSettings.announcement_bar_text}</span>
+            <>
+              <span className="font-bold underline-offset-2" style={{ color: '#C9A84C' }}>{linkText}</span>
+              <span className="text-white font-medium">{restText}</span>
+            </>
           )}
         </div>
         <button onClick={() => setAnnouncementDismissed(true)}
-          className="p-1 rounded-full hover:bg-white/10 transition-colors flex-shrink-0 text-white/60 hover:text-white"
+          className="p-1 rounded-full hover:bg-white/10 transition-colors flex-shrink-0 text-white/60 hover:text-white ml-3"
           aria-label="Dismiss">
           <X size={15} />
         </button>

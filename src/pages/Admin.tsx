@@ -73,6 +73,15 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // Contact
   contact_email: 'info@enkaprime.com',
   contact_phone: '0200 769 146',
+  // Download Banner — on by default
+  download_banner: JSON.stringify({
+    is_active: true,
+    link_text: 'Click here',
+    text: 'to download the 2026 Enka Prime Training Calendar',
+    cta_link: '',
+    file_data: '',
+    file_name: '',
+  }),
   contact_location: 'In-House — Nationwide Delivery',
   // Footer
   footer_tagline: 'Empowering People. Enhancing Performance. Delivering Excellence.',
