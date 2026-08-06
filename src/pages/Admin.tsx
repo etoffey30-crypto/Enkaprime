@@ -347,6 +347,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     { id: 'programmes', label: 'Training Calendar', icon: BookOpen },
     { id: 'blogs', label: 'Blogs', icon: BookOpen },
     { id: 'contact', label: 'Contact', icon: Phone },
+    { id: 'banner', label: 'Download Banner', icon: Download },
     { id: 'visitors', label: 'Visitors & Leads', icon: Users },
     { id: 'settings', label: 'Site Settings', icon: Settings },
   ];
@@ -404,6 +405,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
           {tab === 'programmes' && <ProgrammesTab programmes={programmes} saveProgrammes={saveProgrammes} showToast={showToast} />}
           {tab === 'blogs' && <BlogsTab blogs={blogs} saveBlogs={saveBlogs} showToast={showToast} />}
           {tab === 'contact' && <ContactTab settings={settings} saveSettings={saveSettings} contacts={contacts} />}
+          {tab === 'banner' && <BannerTab settings={settings} saveSettings={saveSettings} />}
           {tab === 'visitors' && <VisitorsTab visitors={visitors} contacts={contacts} />}
           {tab === 'settings' && <SiteSettingsTab settings={settings} saveSettings={saveSettings} />}
         </div>
@@ -951,6 +953,119 @@ function VisitorsTab({ visitors, contacts }: any) {
             </table>
           </div>
         }
+      </div>
+    </div>
+  );
+}
+
+// ── BANNER TAB ────────────────────────────────────────────────────────────────
+function BannerTab({ settings, saveSettings }: any) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const getBanner = () => {
+    try { return JSON.parse(settings.download_banner || '{}'); } catch { return {}; }
+  };
+  const [banner, setBannerState] = useState(() => ({
+    is_active: true,
+    link_text: 'Click here',
+    text: 'to download the 2026 Enka Prime Training Calendar',
+    cta_link: '',
+    file_data: '',
+    file_name: '',
+    ...getBanner(),
+  }));
+
+  const save = () => {
+    saveSettings({ ...settings, download_banner: JSON.stringify(banner) });
+  };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setBannerState(b => ({ ...b, file_data: reader.result as string, file_name: file.name, cta_link: '' }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="max-w-2xl space-y-5">
+      <div className="bg-white rounded-2xl border-2 border-yellow-200 shadow-sm p-6 space-y-4">
+        <div className="flex items-center gap-2 border-b pb-3">
+          <Download size={18} style={{ color: GOLD }} />
+          <h3 className="font-bold text-base" style={{ color: NAVY }}>Download Banner Settings</h3>
+        </div>
+
+        {/* Live preview */}
+        <div className="rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 text-sm" style={{ height: '44px', background: 'linear-gradient(90deg, #0a1628 0%, #0F2044 60%, #1a3a6b 100%)' }}>
+            <div className="flex-1 flex items-center justify-center gap-1.5">
+              <span className="font-bold underline underline-offset-2" style={{ color: '#C9A84C' }}>{banner.link_text || 'Click here'}</span>
+              <span className="text-white font-medium">{banner.text || 'to download...'}</span>
+            </div>
+            <span className="text-white/40 text-xs ml-3">× dismiss</span>
+          </div>
+          <div className="text-[10px] text-center text-gray-400 py-1 bg-gray-50">↑ Live preview</div>
+        </div>
+
+        {/* Toggle */}
+        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
+          <div className={`w-11 h-6 rounded-full transition-colors relative ${banner.is_active ? 'bg-green-500' : 'bg-gray-300'}`}>
+            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${banner.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          </div>
+          <span className="font-semibold text-sm text-gray-700">{banner.is_active ? 'Banner is VISIBLE on site' : 'Banner is HIDDEN'}</span>
+          <input type="checkbox" checked={banner.is_active} onChange={e => setBannerState(b => ({ ...b, is_active: e.target.checked }))} className="hidden" />
+        </label>
+
+        {/* Text fields */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">"Click here" link text</label>
+          <input type="text" value={banner.link_text} onChange={e => setBannerState(b => ({ ...b, link_text: e.target.value }))}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Rest of message</label>
+          <input type="text" value={banner.text} onChange={e => setBannerState(b => ({ ...b, text: e.target.value }))}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800" />
+        </div>
+
+        {/* Upload file */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Upload Document / PDF / Image</label>
+          <div onClick={() => fileRef.current?.click()}
+            className="w-full border-2 border-dashed border-gray-200 rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer hover:border-yellow-400 transition-colors bg-gray-50">
+            <Download size={24} className="text-gray-300" />
+            <span className="text-sm font-semibold text-gray-500">
+              {banner.file_name ? `✓ ${banner.file_name}` : 'Click to upload PDF, Word doc, image…'}
+            </span>
+            <span className="text-xs text-gray-400">File is stored in browser — visitors download directly</span>
+          </div>
+          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.svg,.zip" className="hidden" onChange={handleFile} />
+          {banner.file_name && (
+            <div className="flex items-center justify-between p-2.5 bg-green-50 rounded-lg border border-green-200">
+              <span className="text-xs font-semibold text-green-700">📎 {banner.file_name}</span>
+              <button onClick={() => setBannerState(b => ({ ...b, file_data: '', file_name: '' }))}
+                className="text-xs text-red-500 hover:underline">Remove</button>
+            </div>
+          )}
+        </div>
+
+        {/* OR external URL */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">— OR — External URL (e.g. Google Drive link)</label>
+          <input type="text" value={banner.cta_link} onChange={e => setBannerState(b => ({ ...b, cta_link: e.target.value, file_data: '', file_name: '' }))}
+            placeholder="https://drive.google.com/..."
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:border-yellow-400 bg-white text-gray-800" />
+        </div>
+      </div>
+
+      {/* Sticky save */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 -mx-6 px-6 py-4 flex justify-end shadow-lg">
+        <button onClick={save} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-md hover:opacity-90"
+          style={{ background: NAVY }}>
+          <Save size={16} /> Save Banner
+        </button>
       </div>
     </div>
   );

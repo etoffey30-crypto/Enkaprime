@@ -489,8 +489,8 @@ export default function App() {
 
   const NavBar = () => (
     <nav 
-      className="fixed left-0 right-0 z-50 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm"
-      style={{ top: showAnnouncement ? '40px' : '0px' }}
+      className="fixed left-0 right-0 z-40 bg-gradient-to-b from-white/90 to-white/30 shadow-sm py-1 font-custom transition-all duration-300 backdrop-blur-sm"
+      style={{ top: announcementDismissed ? '0px' : '44px' }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <button onClick={() => handleNavClick({ label: 'Home', href: 'home', link_type: 'page' })} className="flex items-center gap-3">
@@ -574,8 +574,8 @@ export default function App() {
         <div 
           className="lg:hidden fixed left-0 right-0 overflow-y-auto bg-white shadow-2xl border-t border-gray-100 px-4 py-4 animate-fade-in-down"
           style={{ 
-            top: showAnnouncement ? '105px' : '65px',
-            maxHeight: showAnnouncement ? 'calc(100dvh - 105px)' : 'calc(100dvh - 65px)'
+            top: announcementDismissed ? '65px' : '109px',
+            maxHeight: announcementDismissed ? 'calc(100dvh - 65px)' : 'calc(100dvh - 109px)'
           }}
         >
           {/* Services section expanded in mobile */}
@@ -911,7 +911,7 @@ export default function App() {
       <NavBar />
       <SocialRail />
       <div 
-        style={{ paddingTop: showAnnouncement ? '40px' : '0px' }} 
+        style={{ paddingTop: announcementDismissed ? '0px' : '44px' }} 
         className="transition-all duration-300 flex flex-col min-h-screen"
       >
         <div className="flex-1">
