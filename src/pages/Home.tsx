@@ -143,7 +143,7 @@ export default function Home({ onNavigate, settings }: HomeProps) {
   const stats = [
     { value: '4', label: 'Core Service Pillars' },
     { value: '2', label: 'Training Delivery Models', small: 'In-House & Public' },
-    { value: '100%', label: 'Client Success', small: 'Through Practical Solutions' },
+    { value: '100%', label: 'Practical Solutions' },
   ];
 
   const services = (dbServices.length > 0 ? dbServices : FALLBACK_SERVICES).slice(0, 4);

@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Home, Info, Briefcase, GraduationCap, BookOpen,
   Phone, Settings, LogOut, Menu, X, Save, Plus, Trash2, Edit3,
   Image as ImageIcon, Users, Eye, CheckCircle, AlertCircle,
-  ChevronDown, ChevronUp, BarChart3, Mail, MessageSquare, Clock, Download
+  Mail, Clock, Download
 } from 'lucide-react';
 
 const GOLD = '#C9A84C';
@@ -261,7 +261,7 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
   const [services, setServices] = useState<any[]>(() => ls.get('local_services', DEFAULT_SERVICES));
   const [blogs, setBlogs] = useState<any[]>(() => ls.get('local_blogs_cms', DEFAULT_BLOGS));
   const [trainings, setTrainings] = useState<any[]>(() => ls.get('local_trainings', DEFAULT_TRAININGS));
-  const [contacts, setContacts] = useState<any[]>(() => ls.get('local_contacts', []));
+  const [contacts] = useState<any[]>(() => ls.get('local_contacts', []));
   const [visitors, setVisitors] = useState<any[]>(() => ls.get('local_visitors', []));
   const [programmes, setProgrammes] = useState<any[]>(() => ls.get('local_programmes', DEFAULT_PROGRAMMES));
 
@@ -269,17 +269,6 @@ export default function Admin({ onNavigate }: { onNavigate: (page: string) => vo
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
-
-  // persist settings map back to the format App.tsx reads
-  const saveSetting = useCallback((key: string, value: string) => {
-    const next = { ...settings, [key]: value };
-    setSettings(next);
-    ls.set('local_settings_map', next);
-    // also write in array format for App.tsx loadPublicData
-    const arr = Object.entries(next).map(([k, v]) => ({ key: k, value: v }));
-    ls.set('local_settings', arr);
-    showToast('Saved');
-  }, [settings]);
 
   const saveSettings = useCallback((updates: Record<string, string>) => {
     const next = { ...settings, ...updates };
@@ -959,13 +948,22 @@ function VisitorsTab({ visitors, contacts }: any) {
 }
 
 // ── BANNER TAB ────────────────────────────────────────────────────────────────
+interface BannerConfig {
+  is_active: boolean;
+  link_text: string;
+  text: string;
+  cta_link: string;
+  file_data: string;
+  file_name: string;
+}
+
 function BannerTab({ settings, saveSettings }: any) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const getBanner = () => {
     try { return JSON.parse(settings.download_banner || '{}'); } catch { return {}; }
   };
-  const [banner, setBannerState] = useState(() => ({
+  const [banner, setBannerState] = useState<BannerConfig>(() => ({
     is_active: true,
     link_text: 'Click here',
     text: 'to download the 2026 Enka Prime Training Calendar',

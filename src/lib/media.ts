@@ -3,10 +3,12 @@ import { uploadImageToStorage } from './storage';
 
 export interface MediaItem {
   id?: string;
+  name?: string;
   filename?: string;
   original_name?: string;
   file_path?: string;
   file_url?: string;
+  image_url?: string;
   mime_type?: string;
   file_size?: number;
   width?: number;
@@ -22,7 +24,8 @@ export interface MediaItem {
 
 export async function listMedia(search = '', category = '', limit = 48, offset = 0, order = 'created_at.desc') {
   try {
-    let query = supabase.from('media_library').select('*').order('created_at', { ascending: false }).limit(limit).offset(offset);
+    const [column, dir] = (order || 'created_at.desc').split('.');
+    let query = supabase.from('media_library').select('*').order(column || 'created_at', { ascending: dir === 'asc' }).range(offset, offset + limit - 1);
     if (category) query = query.eq('category', category);
     if (search) query = query.ilike('name', `%${search}%`);
     const { data, error } = await query;
@@ -42,6 +45,7 @@ export async function uploadAndCreateMedia(file: File, uploadedBy = 'system', ca
     original_name: file.name,
     file_path: url.replace(/^https?:\/\//, ''),
     file_url: url,
+    image_url: url,
     mime_type: file.type,
     file_size: file.size,
     title: file.name.replace(/\.[^.]+$/, ''),

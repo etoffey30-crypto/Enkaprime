@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ArrowRight, ChevronLeft, CheckCircle, AlertTriangle, Wrench, TrendingUp, Phone, Mail } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 const GOLD = '#C9A84C';
 const NAVY = '#0F2044';

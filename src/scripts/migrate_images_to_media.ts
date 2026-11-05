@@ -128,7 +128,9 @@ async function run() {
       if (!media || !media.id) continue;
       // insert usages
       for (const u of usages) {
-        await supabase.from('media_usages').insert({ media_id: media.id, table_name: u.table, column_name: u.column, row_id: u.id, context: null }).catch(e => { /* ignore */ });
+        try {
+          await supabase.from('media_usages').insert({ media_id: media.id, table_name: u.table, column_name: u.column, row_id: u.id, context: null });
+        } catch { /* ignore */ }
       }
       console.log('Imported', url, '->', media.id);
     } catch (e) {

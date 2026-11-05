@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Menu, X, Phone, Mail, MapPin,
   CheckCircle, ChevronDown, Database, Tag, ShieldCheck, GraduationCap,
-  Facebook, Linkedin, MessageCircle, ArrowRight
+  Facebook, Linkedin, MessageCircle
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
@@ -29,8 +29,6 @@ const SERVICE_DROPDOWN = [
   { label: 'Training & Capacity Building', sub: 'Corporate Learning Programmes', href: 'training', icon: GraduationCap },
 ];
 
-const CATEGORIES = ['All', 'Leadership', 'Customer Service', 'HSE', 'Finance', 'Digital', 'General'];
-
 const GOLD = '#C9A84C';
 const NAVY = '#0F2044';
 
@@ -44,7 +42,6 @@ function getPageFromPath(): string {
 export default function App() {
   const [currentPage, setCurrentPage] = useState(getPageFromPath);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('All');
   const [formData, setFormData] = useState({ name: '', email: '', organization: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
@@ -64,7 +61,6 @@ export default function App() {
 
   // Database-driven data
   const [dbSettings, setDbSettings] = useState<Record<string, string>>({});
-  const [dbProgrammes, setDbProgrammes] = useState<any[]>([]);
   const showAnnouncement = dbSettings.announcement_bar_enabled === 'true' && !announcementDismissed;
 
   useEffect(() => {
@@ -85,15 +81,6 @@ export default function App() {
 
     // Always use local settings — mock client returns empty arrays anyway
     setDbSettings(localMap);
-
-    // Load programmes from localStorage if available
-    const localProgs = localStorage.getItem('local_programmes');
-    if (localProgs) {
-      try {
-        const parsed = JSON.parse(localProgs);
-        if (parsed.length > 0) setDbProgrammes(parsed);
-      } catch (e) { /* ignore */ }
-    }
   }, []);
 
   useEffect(() => { loadPublicData(); }, [loadPublicData]);
@@ -353,10 +340,6 @@ export default function App() {
     return () => document.body.classList.remove('mobile-menu-open');
   }, [menuOpen]);
 
-  const filteredProgrammes = activeCategory === 'All'
-    ? dbProgrammes
-    : dbProgrammes.filter(p => p.category === activeCategory);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
@@ -473,13 +456,13 @@ export default function App() {
       case 'service-iso':
         return <ServiceDetail serviceKey="iso" onNavigate={navigate} />;
       case 'training':
+      case 'upcoming-training':
+      case 'programmes':
         return <Training onNavigate={navigate} />;
       case 'blogs':
         return <Blogs onNavigate={navigate} />;
       case 'about':
         return <About onNavigate={navigate} settings={dbSettings} />;
-      case 'programmes':
-        return <Training onNavigate={navigate} />;
       case 'contact':
         return <ContactPage />;
       default:
@@ -627,80 +610,6 @@ export default function App() {
           <Icon size={20} strokeWidth={2.2} className="sm:h-6 sm:w-6" />
         </a>
       ))}
-    </div>
-  );
-
-  const ProgrammesPage = () => (
-    <div className="min-h-screen bg-white font-sans pt-20">
-      <section className="relative py-14 sm:py-20 overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src={dbSettings.programmes_hero_image || "https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg"}
-            alt="Programmes"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${NAVY}95, ${NAVY}85)` }} />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg">
-            June 2026 Training <span style={{ color: GOLD }}>Programmes</span>
-          </h1>
-          <p className="text-blue-100 text-lg sm:text-xl max-w-3xl drop-shadow-md">
-            Complete catalogue of in-house training programmes across all disciplines.
-          </p>
-        </div>
-      </section>
-
-      <section className="py-14 sm:py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-wrap justify-center gap-2 mb-10">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className="px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200"
-                style={activeCategory === cat
-                  ? { background: NAVY, color: 'white' }
-                  : { background: '#f3f4f6', color: '#374151' }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            {filteredProgrammes.map(prog => (
-              <div
-                key={prog.code}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-xl bg-white hover:bg-blue-50 transition-colors duration-200 group border border-gray-100 hover:border-yellow-300"
-              >
-                <div className="flex items-center gap-4">
-                  <span
-                    className="text-xs font-bold tracking-widest px-3 py-1.5 rounded-lg flex-shrink-0"
-                    style={{ background: `${NAVY}0d`, color: NAVY }}
-                  >
-                    {prog.code}
-                  </span>
-                  <span className="text-gray-800 font-medium text-sm sm:text-base">{prog.title}</span>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0 pl-2 sm:pl-0">
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-lg" style={{ background: `${GOLD}22`, color: '#8a6b1e' }}>
-                    {prog.days} {prog.days === 1 ? 'Day' : 'Days'}
-                  </span>
-                  <button
-                    onClick={() => navigate('contact')}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    style={{ background: NAVY, color: 'white' }}
-                  >
-                    Enquire
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 

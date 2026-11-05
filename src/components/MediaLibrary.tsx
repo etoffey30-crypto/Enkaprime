@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { listMedia, uploadAndCreateMedia, updateMedia, deleteMedia, MediaItem } from '../lib/media';
-import { Upload, X, Edit3, Trash2 } from 'lucide-react';
+import { Upload, Edit3, Trash2 } from 'lucide-react';
 
 const MediaCard: React.FC<{ item: MediaItem; onUse?: (i: MediaItem) => void; onEdit?: (i: MediaItem) => void; onDelete?: (i: MediaItem) => void }> = ({ item, onUse, onEdit, onDelete }) => (
   <div className="border rounded-md overflow-hidden flex flex-col">
     <div className="w-full h-40 bg-gray-100">
-      <img src={(item.file_url || item.image_url || item.file_url)} alt={item.title || item.alt_text || item.original_name} className="w-full h-full object-cover" />
+      <img src={item.file_url || item.image_url || ''} alt={item.title || item.alt_text || item.original_name || 'Media'} className="w-full h-full object-cover" />
     </div>
     <div className="p-2 flex-1 flex flex-col">
       <div className="text-sm font-semibold truncate">{item.title || item.original_name}</div>
@@ -25,12 +25,12 @@ const MediaLibrary: React.FC<{ selectable?: boolean; onSelect?: (item: MediaItem
   const [category, setCategory] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const data = await listMedia(search, category, 200);
     setItems(data as MediaItem[]);
-  };
+  }, [search, category]);
 
-  useEffect(() => { load(); }, [search, category]);
+  useEffect(() => { load(); }, [load]);
 
   const handleFile = async (f?: File) => {
     if (!f) return;
@@ -56,8 +56,8 @@ const MediaLibrary: React.FC<{ selectable?: boolean; onSelect?: (item: MediaItem
         <h2 className="text-2xl font-bold">Media Library</h2>
         <div className="flex items-center gap-2">
           <label className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded cursor-pointer">
-            <Upload size={16} /> <span className="text-sm">Upload Image</span>
-            <input type="file" accept="image/*" onChange={e => handleFile(e.target.files?.[0])} className="hidden" />
+            <Upload size={16} /> <span className="text-sm">{uploading ? 'Uploading...' : 'Upload Image'}</span>
+            <input type="file" accept="image/*" disabled={uploading} onChange={e => handleFile(e.target.files?.[0])} className="hidden" />
           </label>
         </div>
       </div>
@@ -77,11 +77,11 @@ const MediaLibrary: React.FC<{ selectable?: boolean; onSelect?: (item: MediaItem
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {items.map(it => (
-          <MediaCard key={it.id || (it.file_url + Math.random())} item={it} onUse={selectable ? onSelect : undefined} onEdit={() => { const title = prompt('Title', it.title || '') || ''; updateMedia(it.id as string, { title }).then(load); }} onDelete={() => handleDelete(it.id)} />
+          <MediaCard key={it.id || it.file_url || `media-${Math.random()}`} item={it} onUse={selectable ? onSelect : undefined} onEdit={() => { const title = prompt('Title', it.title || '') || ''; updateMedia(it.id as string, { title }).then(load); }} onDelete={() => handleDelete(it.id)} />
         ))}
       </div>
     </div>
   );
-}
+};
 
 export default MediaLibrary;

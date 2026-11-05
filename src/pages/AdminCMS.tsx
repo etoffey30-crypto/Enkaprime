@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { uploadImageToStorage } from '../lib/storage';
 import { uploadAndCreateMedia } from '../lib/media';
 import { Menu, LogOut, Settings, Image as ImageIcon, LayoutGrid as Layout, FileText, Users, BarChart3, Save, Plus, Trash2, CreditCard as Edit3, ArrowLeft, RefreshCw, CheckCircle, AlertCircle, Palette, BookOpen, GraduationCap } from 'lucide-react';
-import MediaLibrary from '../components/MediaLibrary';
 import MediaPicker from '../components/MediaPicker';
 
 const GOLD = '#C9A84C';
@@ -155,7 +154,6 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [siteSettings, setSiteSettings] = useState<any[]>([]);
   const [isMockMode, setIsMockMode] = useState<boolean>(localStorage.getItem('admin_mock_mode') === 'true');
-  const [showSqlModal, setShowSqlModal] = useState<boolean>(false);
 
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -702,12 +700,12 @@ export default function AdminCMS({ onNavigate }: AdminProps) {
                             try {
                               if (!isMockMode) {
                                 const mediaItem = await uploadAndCreateMedia(f, session?.user?.email || 'admin', 'Hero');
-                                setEditForm(prev => ({ ...prev, image_url: mediaItem.file_url || mediaItem.image_url }));
+                                setEditForm((prev: any) => ({ ...prev, image_url: mediaItem.file_url || mediaItem.image_url }));
                                 await loadAllData();
                                 showToast('Image uploaded.');
                               } else {
                                 const data = await convertImageFileToDataUrl(f);
-                                setEditForm(prev => ({ ...prev, image_url: data }));
+                                setEditForm((prev: any) => ({ ...prev, image_url: data }));
                               }
                             } catch (err: any) { showToast(err.message || 'Upload failed', 'error'); }
                           })();
