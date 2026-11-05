@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enka Prime Consulting</title>
+    <script>
+      var path = window.location.pathname;
+      var ext = path.split('.').pop().toLowerCase();
+      var staticExts = ['xml','txt','json','png','jpg','jpeg','gif','svg','ico','css','js','pdf','woff','woff2','webp','mp4','zip'];
+
+      if (staticExts.indexOf(ext) !== -1) {
+        // Genuine missing static file — don't redirect
+        document.write('<p style="font-family:sans-serif;text-align:center;margin-top:20vh">File not found.</p>');
+      } else {
+        // SPA route — save to sessionStorage and redirect to root
+        sessionStorage.setItem('spa_redirect', path + window.location.search + window.location.hash);
+        window.location.replace('/');
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
